@@ -4,7 +4,7 @@ from huggingface_hub import snapshot_download
 # The exact repo ID the node is looking for
 REPO_ID = "Qwen/Qwen3-ASR-1.7B"
 # The path the node expects (based on the error message)
-TARGET_DIR = "/home/runner/ComfyUI/models/Qwen3-ASR/Qwen3-ASR-1.7B"
+TARGET_DIR = "/comfyui/models/Qwen3-ASR/Qwen3-ASR-1.7B"
 
 print(f"Downloading {REPO_ID} to {TARGET_DIR}...")
 try:

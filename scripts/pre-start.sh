@@ -12,10 +12,15 @@ if [ -d "/comfyui/custom_nodes/ComfyUI-Qwen3-ASR" ]; then
     ln -sfn /comfyui/custom_nodes/ComfyUI-Qwen3-ASR /home/runner/ComfyUI/custom_nodes/ComfyUI-Qwen3-ASR
 fi
 
-# 2. Symlink models folder
+# 2. Symlink models folder & Auto-Download Models
 if [ -d "/comfyui/models/Qwen3-TTS" ]; then
     echo "Linking Qwen3-TTS models..."
     mkdir -p /home/runner/ComfyUI/models/Qwen3-TTS
+    # Check if TTS models exist, otherwise download (Run ONCE)
+    if [ -z "$(ls -A /comfyui/models/Qwen3-TTS)" ]; then
+        echo "TTS Model directory empty. Triggering download..."
+        python3 /home/runner/scripts/download_tts.py
+    fi
     ln -sfn /comfyui/models/Qwen3-TTS/* /home/runner/ComfyUI/models/Qwen3-TTS/
 fi
 
@@ -23,6 +28,11 @@ fi
 if [ -d "/comfyui/models/Qwen3-ASR" ]; then
      echo "Linking Qwen3-ASR models..."
      mkdir -p /home/runner/ComfyUI/models/Qwen3-ASR
+     # Check if ASR models exist, otherwise download (Run ONCE)
+     if [ -z "$(ls -A /comfyui/models/Qwen3-ASR)" ]; then
+         echo "ASR Model directory empty. Triggering download..."
+         python3 /home/runner/scripts/download_asr.py
+     fi
      ln -sfn /comfyui/models/Qwen3-ASR/* /home/runner/ComfyUI/models/Qwen3-ASR/
 fi
 
@@ -44,6 +54,6 @@ if [ -f "/home/runner/ComfyUI/custom_nodes/ComfyUI-Qwen3-TTS/requirements.txt" ]
 fi
 
 # Ensure the user site-packages is in the PYTHONPATH
-USER_SITE=/home/user/.local/lib/python3.10/site-packages
-export PYTHONPATH=":"
-echo "PYTHONPATH set to: "
+USER_SITE=$(python3 -m site --user-site)
+export PYTHONPATH="${PYTHONPATH}:${USER_SITE}"
+echo "PYTHONPATH set to: ${PYTHONPATH}"
