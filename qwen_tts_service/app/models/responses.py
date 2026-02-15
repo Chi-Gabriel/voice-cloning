@@ -7,3 +7,4 @@ class TTSResponseItem(BaseModel):
 
 class TTSResponse(BaseModel):
     items: List[TTSResponseItem]
+    performance: float = 0.0

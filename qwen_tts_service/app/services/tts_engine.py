@@ -2,6 +2,7 @@ import torch
 import soundfile as sf
 import os
 import io
+import gc
 import logging
 import tempfile
 import shutil
@@ -30,7 +31,11 @@ class TTSEngine:
         }
 
     def _get_model(self, model_key: str):
+        # Single Active Model Policy:
+        # If the requested model is not loaded, unload everything else first.
         if model_key not in self.models:
+            self._unload_all_models()
+            
             # Check if model type is enabled in config
             enabled_flag = getattr(settings, f"ENABLE_{model_key.upper().replace(' ', '_')}", True)
             if not enabled_flag:
@@ -43,6 +48,21 @@ class TTSEngine:
             self._load_model(model_key, model_id)
             
         return self.models[model_key]
+
+    def _unload_all_models(self):
+        """Unload all models to free VRAM."""
+        if not self.models:
+            return
+            
+        logger.info("Unloading existing models to free VRAM...")
+        keys = list(self.models.keys())
+        for key in keys:
+            del self.models[key]
+        
+        self.models = {}
+        gc.collect()
+        torch.cuda.empty_cache()
+        logger.info("VRAM cleared.")
 
     def _load_model(self, model_key: str, model_id: str):
         try:

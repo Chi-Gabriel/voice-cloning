@@ -27,6 +27,15 @@ app.include_router(
     dependencies=[Depends(get_api_key)]
 )
 
+from fastapi.staticfiles import StaticFiles
+import os
+
+# Serve UI (Static Files)
+# Ensure the directory exists relative to this file
+ui_path = os.path.join(os.path.dirname(__file__), "..", "ui")
+if os.path.exists(ui_path):
+    app.mount("/", StaticFiles(directory=ui_path, html=True), name="ui")
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "version": settings.VERSION}

@@ -4,6 +4,7 @@ from app.models.requests import VoiceDesignRequest, VoiceCloneRequest, CustomVoi
 from app.models.responses import TTSResponse, TTSResponseItem
 from app.services.tts_engine import tts_engine
 import base64
+import time
 
 router = APIRouter()
 
@@ -14,6 +15,7 @@ async def generate_voice_design(request: VoiceDesignRequest):
     Returns base64 encoded WAV audio list.
     """
     try:
+        start_time = time.perf_counter()
         # Convert Enum to string for internal engine
         lang = request.language
         if isinstance(lang, list):
@@ -31,7 +33,8 @@ async def generate_voice_design(request: VoiceDesignRequest):
         for audio in audio_bytes_list:
             items.append(TTSResponseItem(audio_base64=base64.b64encode(audio).decode('utf-8')))
             
-        return TTSResponse(items=items)
+        execution_time = time.perf_counter() - start_time
+        return TTSResponse(items=items, performance=execution_time)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid Input: {str(e)}")
     except Exception as e:
@@ -44,6 +47,7 @@ async def generate_custom_voice(request: CustomVoiceRequest):
     Returns base64 encoded WAV audio list.
     """
     try:
+        start_time = time.perf_counter()
         # Convert Enum to string for internal engine
         lang = request.language
         if isinstance(lang, list):
@@ -62,7 +66,8 @@ async def generate_custom_voice(request: CustomVoiceRequest):
         for audio in audio_bytes_list:
             items.append(TTSResponseItem(audio_base64=base64.b64encode(audio).decode('utf-8')))
             
-        return TTSResponse(items=items)
+        execution_time = time.perf_counter() - start_time
+        return TTSResponse(items=items, performance=execution_time)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid Input: {str(e)}")
     except Exception as e:
@@ -81,6 +86,7 @@ async def generate_voice_clone_file(
     Returns base64 encoded WAV audio list.
     """
     try:
+        start_time = time.perf_counter()
         content = await ref_audio.read()
         
         # Map language code to full name
@@ -101,7 +107,8 @@ async def generate_voice_clone_file(
                  custom_id=custom_id
              ))
              
-        return TTSResponse(items=items)
+        execution_time = time.perf_counter() - start_time
+        return TTSResponse(items=items, performance=execution_time)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid Input: {str(e)}")
     except Exception as e:
@@ -116,6 +123,7 @@ async def generate_voice_clone(request: VoiceCloneRequest):
     Returns base64 encoded WAV audio list with custom IDs if provided.
     """
     try:
+        start_time = time.perf_counter()
         # Convert Enum to string for internal engine
         lang = request.language
         if isinstance(lang, list):
@@ -152,7 +160,8 @@ async def generate_voice_clone(request: VoiceCloneRequest):
                 custom_id=cid
             ))
             
-        return TTSResponse(items=items)
+        execution_time = time.perf_counter() - start_time
+        return TTSResponse(items=items, performance=execution_time)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid Input: {str(e)}")
     except Exception as e:
