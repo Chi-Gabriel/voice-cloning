@@ -1,10 +1,23 @@
 #!/bin/bash
 echo "Running pre-start script..."
 
+
+echo "Updating ComfyUI requirements..."
+# Update ComfyUI frontend packages first to silence warnings and ensure stability
+pip install -r /home/runner/ComfyUI/requirements.txt
+
+echo "Installing system dependencies..."
+# Install SoX (Sound eXchange) - Required for audio processing in Qwen nodes
+# We use zypper because the base image is openSUSE Tumbleweed
+if ! rpm -q sox >/dev/null 2>&1; then
+    sudo zypper install -y sox
+fi
+
 # 1. Symlink custom nodes
-if [ -d "/comfyui/custom_nodes/ComfyUI-Qwen3-TTS" ]; then
-    echo "Linking ComfyUI-Qwen3-TTS custom node..."
-    ln -sfn /comfyui/custom_nodes/ComfyUI-Qwen3-TTS /home/runner/ComfyUI/custom_nodes/ComfyUI-Qwen3-TTS
+
+if [ -d "/comfyui/custom_nodes/ComfyUI-Qwen-TTS" ]; then
+    echo "Linking ComfyUI-Qwen-TTS custom node..."
+    ln -sfn /comfyui/custom_nodes/ComfyUI-Qwen-TTS /home/runner/ComfyUI/custom_nodes/ComfyUI-Qwen-TTS
 fi
 
 if [ -d "/comfyui/custom_nodes/ComfyUI-Qwen3-ASR" ]; then
