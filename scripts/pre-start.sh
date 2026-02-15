@@ -56,6 +56,8 @@ pip install transformers==4.57.3
 pip install qwen-tts
 # qwen-asr is strict about transformers version, so we install it with --no-deps to force it to use our version
 pip install qwen-asr --no-deps
+# Install missing dependencies skipped by --no-deps
+pip install nagisa qwen-omni-utils soynlp pytz sox librosa
 
 # 5. Install Flash Attention (Local Pre-built wheel)
 # We downloaded this to /scripts/, which is mounted at /home/runner/scripts/
