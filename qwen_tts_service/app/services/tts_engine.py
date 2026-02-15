@@ -83,26 +83,28 @@ class TTSEngine:
             logger.error(f"Failed to load {model_key}: {e}")
             raise e
 
-    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto") -> List[bytes]:
+    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 0.3) -> List[bytes]:
         model = self._get_model("VoiceDesign")
         wavs, sr = model.generate_voice_design(
             text=text,
             language=language,
             instruct=instruct,
+            temperature=temperature,
         )
         return self._process_output(wavs, sr)
 
-    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None) -> List[bytes]:
+    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 0.3) -> List[bytes]:
         model = self._get_model("CustomVoice")
         wavs, sr = model.generate_custom_voice(
             text=text,
             language=language,
             speaker=speaker,
             instruct=instruct,
+            temperature=temperature,
         )
         return self._process_output(wavs, sr)
 
-    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto") -> List[bytes]:
+    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 0.3) -> List[bytes]:
         model = self._get_model("VoiceClone")
         
         # Handle bytes as ref_audio (write to temp file)
@@ -146,14 +148,38 @@ class TTSEngine:
                 if ref_text is None:
                     ref_text = ""
 
+            # Ensure all batch inputs have matching lengths for the library
+            if isinstance(text, list):
+                count = len(text)
+                if not isinstance(language, list):
+                    language = [language] * count
+                if not isinstance(processed_ref_audio, list):
+                    processed_ref_audio = [processed_ref_audio] * count
+                if not isinstance(ref_text, list):
+                    ref_text = [ref_text] * count
+                if not isinstance(x_vector_only_mode, list):
+                    x_vector_only_mode = [x_vector_only_mode] * count
+
+            logger.info(f"Generating voice clone batch of size {len(text) if isinstance(text, list) else 1}")
+            
             wavs, sr = model.generate_voice_clone(
                 text=text,
                 language=language,
                 ref_audio=processed_ref_audio,
                 ref_text=ref_text,
                 x_vector_only_mode=x_vector_only_mode,
+                temperature=temperature,
             )
-            return self._process_output(wavs, sr)
+            
+            outputs = self._process_output(wavs, sr)
+            # Debug: check if outputs are identical
+            if len(outputs) > 1:
+                unique_outputs = len(set(outputs))
+                logger.info(f"Batch generation complete. Unique audios: {unique_outputs}/{len(outputs)}")
+                if unique_outputs == 1:
+                    logger.warning("CRITICAL: All generated audios in batch are identical!")
+                    
+            return outputs
         finally:
             # Cleanup temp files
             for path in temp_files:

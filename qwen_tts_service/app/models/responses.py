@@ -2,7 +2,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class TTSResponseItem(BaseModel):
-    audio_base64: str
+    audio_base64: Optional[str] = None
+    url: Optional[str] = None
     custom_id: Optional[str] = None
 
 class TTSResponse(BaseModel):

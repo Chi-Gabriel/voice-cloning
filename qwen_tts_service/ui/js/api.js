@@ -51,31 +51,49 @@ const API = {
     },
 
     // Endpoints
-    voiceDesign: (text, instruct, language) => {
+    voiceDesign: (text, instruct, language, temperature = 0.3) => {
         return API.request('/voice-design', 'POST', {
-            text: [text],
-            instruct: [instruct],
-            language: [language]
-        });
-    },
-
-    customVoice: (text, speaker, language, instruct) => {
-        return API.request('/custom-voice', 'POST', {
-            text: [text],
-            speaker: [speaker],
+            text: Array.isArray(text) ? text : [text],
+            instruct: Array.isArray(instruct) ? instruct : [instruct],
             language: language,
-            instruct: instruct || null
+            temperature: temperature
         });
     },
 
-    voiceCloneFile: (text, file, refText, language) => {
+    customVoice: (text, speaker, language, instruct, temperature = 0.3) => {
+        return API.request('/custom-voice', 'POST', {
+            text: Array.isArray(text) ? text : [text],
+            speaker: Array.isArray(speaker) ? speaker : [speaker],
+            language: language,
+            instruct: instruct || null,
+            temperature: temperature
+        });
+    },
+
+    uploadFile: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return API.request('/files/upload', 'POST', formData, true);
+    },
+
+    voiceClone: (text, refAudio, refText, language, temperature = 0.3) => {
+        // refAudio can be a URL/Path string OR a file_id string
+        return API.request('/voice-clone', 'POST', {
+            text: Array.isArray(text) ? text : [text],
+            ref_audio: refAudio,
+            ref_text: refText,
+            language: language,
+            temperature: temperature
+        });
+    },
+
+    voiceCloneFile: (text, file, refText, language, temperature = 0.3) => {
         const formData = new FormData();
         formData.append('text', text);
         formData.append('ref_audio', file);
         if (refText) formData.append('ref_text', refText);
-        // Ensure language is passed as expected by the backend
-        // Backend handles "Auto" string or enum value.
         formData.append('language', language);
+        formData.append('temperature', temperature);
 
         return API.request('/voice-clone-file', 'POST', formData, true);
     }

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import tts
+from app.api.v1.endpoints import tts, files
 from app.core.security import get_api_key
 
 app = FastAPI(
@@ -20,6 +20,12 @@ app.add_middleware(
 )
 
 # Include Router with API Key security
+app.include_router(
+    files.router,
+    prefix=f"{settings.API_V1_STR}/files",
+    tags=["Files"]
+)
+
 app.include_router(
     tts.router, 
     prefix=settings.API_V1_STR, 

@@ -37,13 +37,15 @@ class VoiceDesignRequest(BaseModel):
     text: Union[str, List[str]]
     instruct: Union[str, List[str]]
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
+    temperature: float = 0.3
     
     class Config:
         json_schema_extra = {
             "example": {
                 "text": ["Hello world", "This is a batch request"],
                 "instruct": ["Happy", "Sad"],
-                "language": ["en", "en"]
+                "language": ["en", "en"],
+                "temperature": 0.3
             }
         }
 
@@ -52,6 +54,7 @@ class CustomVoiceRequest(BaseModel):
     speaker: Union[str, List[str]]
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
     instruct: Optional[Union[str, List[str]]] = None
+    temperature: float = 0.3
 
     class Config:
         json_schema_extra = {
@@ -59,7 +62,8 @@ class CustomVoiceRequest(BaseModel):
                 "text": ["Hello from speaker A", "Hello from speaker B"],
                 "speaker": ["Speaker_001", "Speaker_002"],
                 "language": "en",
-                "instruct": "Neutral"
+                "instruct": "Neutral",
+                "temperature": 0.3
             }
         }
 
@@ -69,6 +73,7 @@ class VoiceCloneRequest(BaseModel):
     ref_text: Optional[Union[str, List[str]]] = None
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
     custom_id: Optional[Union[str, List[str]]] = None
+    temperature: float = 0.3
 
     class Config:
         json_schema_extra = {
@@ -77,6 +82,7 @@ class VoiceCloneRequest(BaseModel):
                 "ref_audio": ["/path/to/audio1.wav", "/path/to/audio2.wav"],
                 "ref_text": ["Reference text 1", None],
                 "language": "en",
-                "custom_id": ["id_123", "id_456"]
+                "custom_id": ["id_123", "id_456"],
+                "temperature": 0.3
             }
         }

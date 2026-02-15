@@ -50,6 +50,8 @@ services:
     volumes:
       # Mount the same models directory
       - ./storage/models:/app/models
+      # Expose temp file registry to host
+      - ./storage/temp_audio:/tmp/tts_files
     deploy:
       resources:
         reservations:

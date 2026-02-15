@@ -10,6 +10,8 @@ const UI = {
         vdText: document.getElementById('vd-text'),
         vdInstruct: document.getElementById('vd-instruct'),
         vdLanguage: document.getElementById('vd-language'),
+        vdTemp: document.getElementById('vd-temperature'),
+        vdTempVal: document.getElementById('vd-temp-value'),
         btnDesign: document.getElementById('btn-generate-design'),
 
         // Voice Cloning
@@ -19,6 +21,8 @@ const UI = {
         vcPreview: document.getElementById('vc-preview'),
         vcRefText: document.getElementById('vc-ref-text'),
         vcLanguage: document.getElementById('vc-language'),
+        vcTemp: document.getElementById('vc-temperature'),
+        vcTempVal: document.getElementById('vc-temp-value'),
         btnClone: document.getElementById('btn-generate-clone'),
 
         // Custom Voice
@@ -26,6 +30,8 @@ const UI = {
         cvSpeaker: document.getElementById('cv-speaker'),
         cvLanguage: document.getElementById('cv-language'),
         cvInstruct: document.getElementById('cv-instruct'),
+        cvTemp: document.getElementById('cv-temperature'),
+        cvTempVal: document.getElementById('cv-temp-value'),
         btnCustom: document.getElementById('btn-generate-custom'),
 
         // Output
@@ -57,6 +63,7 @@ const UI = {
         UI.initTabs();
         UI.initWaveSurfer();
         UI.initLanguages();
+        UI.initSliders(); // Initialize sliders
         UI.loadHistory();
 
         // Load API Key
@@ -117,6 +124,26 @@ const UI = {
         UI.elements.vdLanguage.innerHTML = options;
         UI.elements.vcLanguage.innerHTML = options;
         UI.elements.cvLanguage.innerHTML = options;
+    },
+
+    initSliders: () => {
+        // Voice Design Temperature Slider
+        UI.elements.vdTemp.addEventListener('input', (e) => {
+            UI.elements.vdTempVal.textContent = e.target.value;
+        });
+        UI.elements.vdTempVal.textContent = UI.elements.vdTemp.value; // Set initial value
+
+        // Voice Cloning Temperature Slider
+        UI.elements.vcTemp.addEventListener('input', (e) => {
+            UI.elements.vcTempVal.textContent = e.target.value;
+        });
+        UI.elements.vcTempVal.textContent = UI.elements.vcTemp.value; // Set initial value
+
+        // Custom Voice Temperature Slider
+        UI.elements.cvTemp.addEventListener('input', (e) => {
+            UI.elements.cvTempVal.textContent = e.target.value;
+        });
+        UI.elements.cvTempVal.textContent = UI.elements.cvTemp.value; // Set initial value
     },
 
     setupEventListeners: () => {
@@ -207,28 +234,20 @@ const UI = {
             if (mode === 'design') {
                 const text = UI.elements.vdText.value;
                 const instruct = UI.elements.vdInstruct.value;
-                const lang = UI.elements.vdLanguage.value;
                 if (!text || !instruct) throw new Error('Text and Instruction are required');
-
-                response = await API.voiceDesign(text, instruct, lang);
+                response = await API.voiceDesign(text, instruct, UI.elements.vdLanguage.value, parseFloat(UI.elements.vdTemp.value));
             } else if (mode === 'clone') {
                 const text = UI.elements.vcText.value;
                 const file = UI.elements.vcFile.files[0];
                 const refText = UI.elements.vcRefText.value;
-                const lang = UI.elements.vcLanguage.value;
-
                 if (!text || !file) throw new Error('Text and Reference Audio are required');
-
-                response = await API.voiceCloneFile(text, file, refText, lang); // Using multipart endpoint
+                response = await API.voiceCloneFile(text, file, refText, UI.elements.vcLanguage.value, parseFloat(UI.elements.vcTemp.value)); // Using multipart endpoint
             } else if (mode === 'custom') {
                 const text = UI.elements.cvText.value;
                 const speaker = UI.elements.cvSpeaker.value;
-                const lang = UI.elements.cvLanguage.value;
                 const instruct = UI.elements.cvInstruct.value;
-
                 if (!text || !speaker) throw new Error('Text and Speaker ID are required');
-
-                response = await API.customVoice(text, speaker, lang, instruct);
+                response = await API.customVoice(text, speaker, UI.elements.cvLanguage.value, instruct, parseFloat(UI.elements.cvTemp.value));
             }
 
             if (response && response.items && response.items.length > 0) {
@@ -240,7 +259,12 @@ const UI = {
                 UI.wavesurfer.play();
                 UI.updatePlayButton(true);
 
-                UI.addToHistory(mode, url, response.performance);
+                let displayText = "";
+                if (mode === 'design') displayText = UI.elements.vdText.value;
+                else if (mode === 'clone') displayText = UI.elements.vcText.value;
+                else if (mode === 'custom') displayText = UI.elements.cvText.value;
+
+                UI.addToHistory(mode, url, response.performance, displayText);
             }
 
         } catch (error) {
@@ -251,44 +275,68 @@ const UI = {
         }
     },
 
-    addToBatch: (mode) => {
+    addToBatch: async (mode) => {
+        const btnId = `btn-add-batch-${mode}`;
+        const btn = document.getElementById(btnId);
+        const originalText = btn.textContent;
+
         try {
-            let item = { mode: mode, id: Utils.generateId() };
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
 
             if (mode === 'design') {
                 const text = UI.elements.vdText.value;
                 const instruct = UI.elements.vdInstruct.value;
                 const lang = UI.elements.vdLanguage.value;
-                if (!text || !instruct) throw new Error('Text and Instruction are required');
-                item = { ...item, text, instruct, lang };
+                const temp = parseFloat(UI.elements.vdTemp.value);
+
+                if (!text) return alert("Text is required");
+                if (!instruct) return alert("Instruction is required");
+
+                UI.batchQueue.push({ id: Utils.generateId(), mode, text, instruct, lang, temp });
             } else if (mode === 'clone') {
                 const text = UI.elements.vcText.value;
-                const file = UI.elements.vcFile.files[0];
                 const refText = UI.elements.vcRefText.value;
                 const lang = UI.elements.vcLanguage.value;
-                if (!text || !file) throw new Error('Text and Reference Audio are required');
-                item = { ...item, text, file, refText, lang, fileName: file.name };
+                const temp = parseFloat(UI.elements.vcTemp.value);
+                const file = UI.elements.vcFile.files[0];
+
+                if (!text) return alert("Text is required");
+                if (!file) return alert("Reference Audio is required");
+
+                // Upload file first
+                btn.textContent = 'Uploading...';
+                const uploadRes = await API.uploadFile(file);
+                const file_id = uploadRes.file_id;
+                const fileName = file.name;
+
+                UI.batchQueue.push({ id: Utils.generateId(), mode, text, refText, lang, file_id, fileName, temp });
             } else if (mode === 'custom') {
                 const text = UI.elements.cvText.value;
                 const speaker = UI.elements.cvSpeaker.value;
                 const lang = UI.elements.cvLanguage.value;
                 const instruct = UI.elements.cvInstruct.value;
-                if (!text || !speaker) throw new Error('Text and Speaker ID are required');
-                item = { ...item, text, speaker, lang, instruct };
+                const temp = parseFloat(UI.elements.cvTemp.value);
+
+                if (!text) return alert("Text is required");
+                if (!speaker) return alert("Speaker ID is required");
+
+                UI.batchQueue.push({ id: Utils.generateId(), mode, text, speaker, lang, instruct, temp });
             }
 
-            UI.batchQueue.push(item);
             UI.updateBatchUI();
 
             // Visual feedback
-            const btnId = `btn-add-batch-${mode}`;
-            const btn = document.getElementById(btnId);
-            const originalText = btn.textContent;
             btn.textContent = 'Added!';
-            setTimeout(() => btn.textContent = originalText, 1000);
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 1000);
 
         } catch (error) {
             alert(error.message);
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     },
 
@@ -336,12 +384,7 @@ const UI = {
         btn.textContent = 'Processing...';
 
         try {
-            // Group by mode to minimize API calls (though backend handles mixed lists if we refactored, for now let's do sequential batch calls per mode for simplicity or parallel)
-            // Correction: The API endpoints are specific (voice-design, voice-clone, etc). We must group by endpoint.
-
-            // Simple approach: Process sequentially by mode groups or even item by item if we want simple progress updates.
-            // But true batching means sending arrays. Let's group by mode.
-
+            // Group by mode
             const batches = {};
             UI.batchQueue.forEach(item => {
                 if (!batches[item.mode]) batches[item.mode] = [];
@@ -351,38 +394,76 @@ const UI = {
             for (const mode in batches) {
                 const items = batches[mode];
                 const texts = items.map(i => i.text);
-                const langs = items.map(i => i.lang); // Corrected property name from 'language' to 'lang' in logic
+                const langs = items.map(i => i.lang);
 
                 let response;
 
                 if (mode === 'design') {
                     const instructs = items.map(i => i.instruct);
-                    response = await API.voiceDesign(texts, instructs, langs);
+                    const temps = items.map(i => i.temp);
+                    // Assumption: use temperature of first item for the batch request if scalar, 
+                    // but backend supports list or scalar. For simplicity, we use scalar if all same, 
+                    // or just pass first one if not specified or list of them.
+                    // Actually, let's pass the list!
+                    response = await API.voiceDesign(texts, instructs, langs, temps);
                 } else if (mode === 'custom') {
                     const speakers = items.map(i => i.speaker);
                     const instructs = items.map(i => i.instruct);
-                    response = await API.customVoice(texts, speakers, langs, instructs);
+                    const temps = items.map(i => i.temp);
+                    response = await API.customVoice(texts, speakers, langs, instructs, temps);
                 } else if (mode === 'clone') {
-                    // Start with single clone requests for simplicity as multipart batching with different files is tricky in one request without backend support for multiple files
-                    // But if it's the SAME file we could batch. 
-                    // To be safe and robust, let's process clones sequentially for now, or grouped by file.
-                    // Implementation: Sequential for clones to ensure stability.
-                    for (const item of items) {
-                        const res = await API.voiceCloneFile(item.text, item.file, item.refText, item.lang);
+                    // Group by file_id for optimized batching
+                    const fileGroups = {};
+                    const sequentialItems = [];
+
+                    items.forEach(item => {
+                        if (item.file_id) {
+                            if (!fileGroups[item.file_id]) fileGroups[item.file_id] = [];
+                            fileGroups[item.file_id].push(item);
+                        } else {
+                            sequentialItems.push(item); // Fallback for raw files (shouldn't happen with new logic)
+                        }
+                    });
+
+                    // 1. Process File Groups (Optimized Batch)
+                    for (const fileId in fileGroups) {
+                        const groupItems = fileGroups[fileId];
+                        const groupTexts = groupItems.map(i => i.text);
+                        // Assumption: Language is same for the file? Protocol says list is supported.
+                        const groupLangs = groupItems.map(i => i.lang);
+                        const groupRefTexts = groupItems.map(i => i.refText);
+
+                        const res = await API.voiceClone(groupTexts, fileId, groupRefTexts, groupLangs, groupItems.map(i => i.temp));
                         if (res && res.items) {
-                            res.items.forEach(r => {
-                                const url = URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                                UI.addToHistory(mode, url, res.performance);
+                            res.items.forEach((r, idx) => {
+                                const originalItem = groupItems[idx];
+                                const text = originalItem ? originalItem.text : "";
+                                const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
+                                console.log(`Batch Result [${idx}]: ${text} -> ${url}`);
+                                UI.addToHistory(mode, url, res.performance, text);
                             });
                         }
                     }
-                    continue; // Skip the array processing below for clones
+
+                    // 2. Process Sequential (Fallback)
+                    for (const item of sequentialItems) {
+                        const res = await API.voiceCloneFile(item.text, item.file, item.refText, item.lang, item.temp);
+                        if (res && res.items) {
+                            res.items.forEach(r => {
+                                const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
+                                UI.addToHistory(mode, url, res.performance, item.text);
+                            });
+                        }
+                    }
+                    continue;
                 }
 
                 if (response && response.items) {
-                    response.items.forEach(r => {
-                        const url = URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                        UI.addToHistory(mode, url, response.performance);
+                    response.items.forEach((r, idx) => {
+                        const originalItem = items[idx];
+                        const text = originalItem ? originalItem.text : "";
+                        const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
+                        UI.addToHistory(mode, url, response.performance, text);
                     });
                 }
             }
@@ -411,11 +492,12 @@ const UI = {
         UI.elements.playPauseBtn.innerHTML = icon;
     },
 
-    addToHistory: (mode, url, performance) => {
+    addToHistory: (mode, url, performance, text = "") => {
         const item = {
             id: Utils.generateId(),
             mode: mode,
             url: url,
+            text: text,
             performance: performance,
             timestamp: new Date().toLocaleString()
         };
@@ -425,13 +507,20 @@ const UI = {
         el.innerHTML = `
             <div class="history-info">
                 <strong>${mode.toUpperCase().replace('-', ' ')}</strong>
+                <span style="font-size:0.7em; color:var(--accent); margin-left:10px;">ID: ${item.id}</span>
                 <span>${item.timestamp}</span>
+                <span class="history-text" style="display:block; font-size:0.9em; margin-top:4px; color:var(--text-primary); font-style:italic; opacity:0.8;">
+                    "${text}"
+                </span>
                 <span style="font-size: 0.8em; color: var(--accent); display: block; margin-top: 4px;">
                     generated in ${item.performance ? item.performance.toFixed(2) + 's' : 'N/A'}
                 </span>
+                <code style="font-size:0.7em; background:rgba(0,0,0,0.2); padding:2px 4px; border-radius:3px; display:inline-block; margin-top:4px;">
+                    ${url}
+                </code>
             </div>
             <div class="history-actions">
-                <button onclick="UI.wavesurfer.load('${url}'); UI.wavesurfer.play();">Play</button>
+                <button onclick="console.log('Playing: ${url}'); UI.wavesurfer.load('${url}'); UI.wavesurfer.play();">Play</button>
                 <a href="${url}" download="generated_${item.id}.wav" style="color:var(--accent); text-decoration:none; font-size:0.9rem; margin-left:8px;">Download</a>
             </div>
         `;
