@@ -1,0 +1,32 @@
+services:
+  comfyui:
+    image: yanwk/comfyui-boot:cu121  # NVIDIA CUDA 12.1 Image
+    container_name: comfyui-production
+    restart: unless-stopped
+    network_mode: host  # Simplifies port mapping for the API
+    
+    # ENVIRONMENT VARIABLES
+    environment:
+      - CLI_ARGS=--listen 0.0.0.0 --port 8188 --preview-method auto
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    
+    # VOLUMES: This maps your hard drive into the container
+    volumes:
+      # Map the "storage" folder to the container's internal storage
+      - ./storage/models:/comfyui/models
+      - ./storage/output:/comfyui/output
+      - ./storage/user:/comfyui/user
+      - ./storage/custom_nodes:/comfyui/custom_nodes
+      
+      # Map the scripts folder
+      - ./scripts:/home/runner/scripts
+
+    # GPU RESERVATION (Critical for RTX A4000)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
