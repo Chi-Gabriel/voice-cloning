@@ -30,3 +30,29 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  qwen-api:
+    build: 
+      context: .
+      dockerfile: qwen_tts_service/Dockerfile
+    container_name: qwen-tts-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # Shared path inside container
+      - MODEL_ROOT=/app/models/Qwen3-TTS
+      - DEVICE=cuda:0
+      - API_KEY=${API_KEY:-}
+    volumes:
+      # Mount the same models directory
+      - ./storage/models:/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

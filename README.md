@@ -42,7 +42,7 @@ This is a production-ready setup for running **Qwen3-TTS** and **Qwen3-ASR** usi
 ## Usage
 
 1.  Open your browser and navigate to:
-    **http://<your-server-ip>:47900/** (or `http://localhost:8188` if running locally).
+    **http://<your-server-ip>:8188/** (or `http://localhost:8188` if running locally).
 
 2.  **Load a Workflow**:
     Drag and drop one of the JSON files from `storage/custom_nodes/ComfyUI-Qwen3-TTS/example_workflows/` onto the dashboard.
@@ -52,6 +52,31 @@ This is a production-ready setup for running **Qwen3-TTS** and **Qwen3-ASR** usi
     - Upload a reference audio file (WAV/MP3).
     - Enter the text you want to generate.
     - Click **Queue Prompt**.
+
+## Qwen-TTS API Service
+
+We also provide a standalone, high-performance API for integrating Qwen-TTS into your own applications.
+
+### Starting the API
+
+You can run the API alongside ComfyUI or independently:
+
+```bash
+# Run EVERYTHING (ComfyUI + API)
+docker compose up -d
+
+# Run ONLY the API
+docker compose up -d qwen-api
+```
+
+The API will be available at **http://localhost:8000**.
+- **Swagger Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+### API Features
+- **Shared Models**: Uses the same `storage/models` directory as ComfyUI, so you don't need to download models twice.
+- **Batch Processing**: Supports batch generation for high throughput.
+- **Configurable**: Control which models to load via environment variables in `docker-compose.yaml`.
 
 ## Updating Dependencies
 
@@ -68,8 +93,10 @@ If you need to add more Python packages, you can edit `scripts/pre-start.sh`. Th
 
 ## Project Structure
 
-- `docker-compose.yaml`: Docker configuration.
+- `docker-compose.yaml`: Docker configuration (ComfyUI + Qwen API).
+- `qwen_tts_service/`: Source code for the FastAPI backend.
 - `start.sh`: Main entry point to run the project.
 - `setup.sh`: Helper to download binary dependencies.
 - `scripts/pre-start.sh`: The "brain" of the setup - installs/links everything inside the container.
 - `storage/`: Persistent data folder (ignored by git).
+

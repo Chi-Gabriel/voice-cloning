@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+python-multipart
+# Qwen-TTS specific
+# Version 0.1.1 is current in repo
+qwen-tts
+torch
+torchaudio
+soundfile
+numpy
+scipy
+librosa
