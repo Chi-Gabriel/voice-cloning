@@ -1,5 +1,6 @@
 import os
 import logging
+import threading
 import concurrent.futures
 from pathlib import Path
 from typing import List, Dict, Tuple, Optional
@@ -25,23 +26,29 @@ class NoiseRemovalService:
         self.storage_dir = Path("/tmp/tts_files")
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.device = torch.device(settings.DEVICE if torch.cuda.is_available() else "cpu")
+        self._lock = threading.Lock()
 
     def _ensure_model(self):
-        """Lazy load the DeepFilterNet model."""
+        """Lazy load the DeepFilterNet model with thread safety."""
         if self.model is not None:
             return
 
-        logger.info("Initializing DeepFilterNet model...")
-        try:
-            from df.enhance import init_df
-            # init_df returns (model, df_state, nb_frequency_bins)
-            self.model, self.df_state, _ = init_df()
-            self.model.to(self.device)
-            self.model.eval()
-            logger.info("DeepFilterNet model initialized successfully.")
-        except Exception as e:
-            logger.error(f"Failed to initialize DeepFilterNet: {e}")
-            raise e
+        with self._lock:
+            # Double check inside lock
+            if self.model is not None:
+                return
+
+            logger.info("Initializing DeepFilterNet model...")
+            try:
+                from df.enhance import init_df
+                # init_df returns (model, df_state, nb_frequency_bins)
+                self.model, self.df_state, _ = init_df()
+                self.model.to(self.device)
+                self.model.eval()
+                logger.info("DeepFilterNet model initialized successfully.")
+            except Exception as e:
+                logger.error(f"Failed to initialize DeepFilterNet: {e}")
+                raise e
 
     def remove_noise_files(self, file_paths: List[str]) -> Dict[str, str]:
         """
@@ -73,6 +80,7 @@ class NoiseRemovalService:
 
     def _denoise_single(self, path: str) -> str:
         """Worker function for denoising a single file."""
+        self._ensure_model()
         try:
             from df.enhance import enhance
             import soundfile as sf

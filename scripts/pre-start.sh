@@ -25,6 +25,16 @@ if [ -d "/comfyui/custom_nodes/ComfyUI-Qwen3-ASR" ]; then
     ln -sfn /comfyui/custom_nodes/ComfyUI-Qwen3-ASR /home/runner/ComfyUI/custom_nodes/ComfyUI-Qwen3-ASR
 fi
 
+if [ -d "/comfyui/custom_nodes/ComfyUI-Manager" ]; then
+    echo "Linking ComfyUI-Manager..."
+    ln -sfn /comfyui/custom_nodes/ComfyUI-Manager /home/runner/ComfyUI/custom_nodes/ComfyUI-Manager
+fi
+
+if [ -d "/comfyui/custom_nodes/ComfyUI-Egregora-Audio-Super-Resolution" ]; then
+    echo "Linking ComfyUI-Egregora-Audio-Super-Resolution..."
+    ln -sfn /comfyui/custom_nodes/ComfyUI-Egregora-Audio-Super-Resolution /home/runner/ComfyUI/custom_nodes/ComfyUI-Egregora-Audio-Super-Resolution
+fi
+
 # 2. Symlink models folder & Auto-Download Models
 if [ -d "/comfyui/models/Qwen3-TTS" ]; then
     echo "Linking Qwen3-TTS models..."
@@ -58,6 +68,9 @@ pip install qwen-tts
 pip install qwen-asr --no-deps
 # Install missing dependencies skipped by --no-deps
 pip install nagisa qwen-omni-utils soynlp pytz sox librosa
+
+# Egregora / DeepFilterNet requirements
+pip install deepfilternet pyrnnoise nara-wpe fat-llama fat-llama-fftw descript-audio-codec huggingface_hub
 
 # 5. Install Flash Attention (Local Pre-built wheel)
 # We downloaded this to /scripts/, which is mounted at /home/runner/scripts/

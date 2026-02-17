@@ -39,6 +39,9 @@ class GPUWorker:
                 batch_items = queue_service.pop_items(settings.QUEUE_MAX_BATCH_SIZE)
                 
                 if not batch_items:
+                    # Sleep if nothing to do
+                    time.sleep(settings.QUEUE_POLL_INTERVAL)
+                    continue
 
                 # 2. Group items by operation type
                 groups = {}

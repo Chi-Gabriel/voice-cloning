@@ -31,6 +31,13 @@ services:
               count: all
               capabilities: [gpu]
 
+  redis:
+    image: redis:7-alpine
+    container_name: tts-redis
+    restart: unless-stopped
+    # No port exposure needed for internal communication, 
+    # but 6379 is standard for Redis.
+
   qwen-api:
     build: 
       context: .
@@ -39,6 +46,8 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -47,11 +56,15 @@ services:
       - DEVICE=cuda:0
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - API_KEY=${API_KEY:-}
+      - REDIS_URL=redis://redis:6379/0
     volumes:
+
       # Mount the same models directory
       - ./storage/models:/app/models
       # Expose temp file registry to host
       - ./storage/temp_audio:/tmp/tts_files
+      # Mount source code for development/UI updates
+      - ./qwen_tts_service:/app
     deploy:
       resources:
         reservations:
