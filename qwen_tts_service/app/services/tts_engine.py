@@ -67,7 +67,16 @@ class TTSEngine:
     def _load_model(self, model_key: str, model_id: str):
         try:
             # Check local path first
+            # 1. Check strict model_key mapping (legacy structure)
             local_path = os.path.join(settings.MODEL_ROOT, model_key)
+            
+            # 2. If not found, check repo-based name (current structure)
+            if not os.path.exists(local_path):
+                repo_name = model_id.split("/")[-1]
+                local_path_repo = os.path.join(settings.MODEL_ROOT, repo_name)
+                if os.path.exists(local_path_repo):
+                    local_path = local_path_repo
+            
             model_source = local_path if os.path.exists(local_path) else model_id
             
             logger.info(f"Loading {model_key} model from {model_source}...")

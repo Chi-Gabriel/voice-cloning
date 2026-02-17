@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import tts, files, pipeline
+from app.api.v1.endpoints import tts, files, pipeline, queue
 from app.core.security import get_api_key
+from app.services.gpu_worker import gpu_worker
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -34,6 +35,13 @@ app.include_router(
 )
 
 app.include_router(
+    queue.router,
+    prefix=settings.API_V1_STR,
+    tags=["Queue"],
+    dependencies=[Depends(get_api_key)]
+)
+
+app.include_router(
     tts.router, 
     prefix=settings.API_V1_STR, 
     tags=["TTS"],
@@ -48,6 +56,14 @@ import os
 ui_path = os.path.join(os.path.dirname(__file__), "..", "ui")
 if os.path.exists(ui_path):
     app.mount("/", StaticFiles(directory=ui_path, html=True), name="ui")
+
+@app.on_event("startup")
+async def startup_event():
+    gpu_worker.start()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    gpu_worker.stop()
 
 @app.get("/health")
 def health_check():

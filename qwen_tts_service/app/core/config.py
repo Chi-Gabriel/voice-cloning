@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # Security
     API_KEY: Optional[str] = None
     
+    # Async Queue Configuration
+    REDIS_URL: str = "redis://localhost:6379/0"
+    QUEUE_MAX_BATCH_SIZE: int = 8
+    QUEUE_POLL_INTERVAL: float = 0.1
+    
     class Config:
         env_file = ".env"
 
