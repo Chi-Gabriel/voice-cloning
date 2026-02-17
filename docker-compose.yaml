@@ -2,6 +2,7 @@ services:
   comfyui:
     image: yanwk/comfyui-boot:cu121  # NVIDIA CUDA 12.1 Image
     container_name: comfyui-production
+    user: root
     restart: unless-stopped
     network_mode: host  # Simplifies port mapping for the API
     

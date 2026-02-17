@@ -10,7 +10,7 @@ echo "Installing system dependencies..."
 # Install SoX (Sound eXchange) - Required for audio processing in Qwen nodes
 # We use zypper because the base image is openSUSE Tumbleweed
 if ! rpm -q sox >/dev/null 2>&1; then
-    sudo zypper install -y sox
+    zypper install -y sox
 fi
 
 # 1. Symlink custom nodes

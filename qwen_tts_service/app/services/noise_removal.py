@@ -25,7 +25,15 @@ class NoiseRemovalService:
         self.max_workers = settings.NOISE_REMOVAL_MAX_WORKERS
         self.storage_dir = Path("/tmp/tts_files")
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        self.device = torch.device(settings.DEVICE if torch.cuda.is_available() else "cpu")
+        # Robust device detection
+        requested_device = settings.DEVICE
+        has_cuda = torch.cuda.is_available() and torch.cuda.device_count() > 0
+        
+        if requested_device.startswith("cuda") and not has_cuda:
+            logger.warning(f"CUDA requested ({requested_device}) but no GPUs available for NoiseRemoval. Falling back to CPU.")
+            self.device = torch.device("cpu")
+        else:
+            self.device = torch.device(requested_device)
         self._lock = threading.Lock()
 
     def _ensure_model(self):

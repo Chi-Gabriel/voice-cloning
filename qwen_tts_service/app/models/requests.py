@@ -38,10 +38,6 @@ class VoiceDesignRequest(BaseModel):
     instruct: Union[str, List[str]]
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
     temperature: float = 1.0
-    max_new_tokens: int = 2048
-    top_p: float = 0.80
-    top_k: int = 20
-    repetition_penalty: float = 1.05
     
     class Config:
         json_schema_extra = {
@@ -49,11 +45,7 @@ class VoiceDesignRequest(BaseModel):
                 "text": ["Hello world", "This is a batch request"],
                 "instruct": ["Happy", "Sad"],
                 "language": ["en", "en"],
-                "temperature": 1.0,
-                "max_new_tokens": 2048,
-                "top_p": 0.80,
-                "top_k": 20,
-                "repetition_penalty": 1.05
+                "temperature": 1.0
             }
         }
 
@@ -63,10 +55,6 @@ class CustomVoiceRequest(BaseModel):
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
     instruct: Optional[Union[str, List[str]]] = None
     temperature: float = 1.0
-    max_new_tokens: int = 2048
-    top_p: float = 0.80
-    top_k: int = 20
-    repetition_penalty: float = 1.05
 
     class Config:
         json_schema_extra = {
@@ -75,11 +63,7 @@ class CustomVoiceRequest(BaseModel):
                 "speaker": ["Speaker_001", "Speaker_002"],
                 "language": "en",
                 "instruct": "Neutral",
-                "temperature": 1.0,
-                "max_new_tokens": 2048,
-                "top_p": 0.80,
-                "top_k": 20,
-                "repetition_penalty": 1.05
+                "temperature": 1.0
             }
         }
 
@@ -90,10 +74,6 @@ class VoiceCloneRequest(BaseModel):
     language: Union[LanguageEnum, List[LanguageEnum]] = LanguageEnum.AUTO
     custom_id: Optional[Union[str, List[str]]] = None
     temperature: float = 1.0
-    max_new_tokens: int = 2048
-    top_p: float = 0.80
-    top_k: int = 20
-    repetition_penalty: float = 1.05
 
     class Config:
         json_schema_extra = {
@@ -103,11 +83,7 @@ class VoiceCloneRequest(BaseModel):
                 "ref_text": ["Reference text 1", None],
                 "language": "en",
                 "custom_id": ["id_123", "id_456"],
-                "temperature": 1.0,
-                "max_new_tokens": 2048,
-                "top_p": 0.80,
-                "top_k": 20,
-                "repetition_penalty": 1.05
+                "temperature": 1.0
             }
         }
 
@@ -120,10 +96,6 @@ class VoiceCloneEnhancedRequest(VoiceCloneRequest):
                 "ref_text": ["Reference text 1", None],
                 "language": "en",
                 "custom_id": ["id_123", "id_456"],
-                "temperature": 1.0,
-                "max_new_tokens": 2048,
-                "top_p": 0.80,
-                "top_k": 20,
-                "repetition_penalty": 1.05
+                "temperature": 1.0
             }
         }

@@ -10,6 +10,13 @@ from app.services.resampler import resampler
 from app.services.noise_removal import noise_removal
 from app.services.tts_engine import tts_engine
 from app.services.file_store import file_store
+from app.core.config import settings
+
+# --- Pipeline Tuning ---
+# Set these to False to bypass specific stages of the enhancement pipeline
+RUN_PRE_PROCESSING = False # Controls Stage 1 & 2 (Resample & Noise Removal)
+RUN_POST_PROCESSING = True # Controls Stage 4 & 5 (Resample & Noise Removal)
+# -----------------------
 
 logger = logging.getLogger(__name__)
 
@@ -67,11 +74,7 @@ class AudioPipeline:
         ref_audio: Union[str, List[str]], 
         ref_text: Optional[Union[str, List[str]]] = None, 
         language: Union[str, List[str]] = "Auto", 
-        temperature: float = 1.0,
-        max_new_tokens: int = 2048,
-        top_p: float = 0.80,
-        top_k: int = 20,
-        repetition_penalty: float = 1.05
+        temperature: float = 1.0
     ) -> List[bytes]:
         """
         Runs the optimized enhanced voice cloning pipeline:
@@ -81,10 +84,14 @@ class AudioPipeline:
         ref_paths = self._resolve_paths(ref_audio)
         
         # 2. Pre-processing: Resample & Noise Removal (Parallelized)
-        logger.info(f"Pipeline: Parallel pre-processing {len(ref_paths)} reference files")
         max_workers = settings.RESAMPLE_MAX_WORKERS
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            clean_ref_paths = list(executor.map(self._pre_process_single_file, ref_paths))
+        if RUN_PRE_PROCESSING:
+            logger.info(f"Pipeline: Parallel pre-processing {len(ref_paths)} reference files")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                clean_ref_paths = list(executor.map(self._pre_process_single_file, ref_paths))
+        else:
+            logger.info("Pipeline: Bypassing stages 1-2 (Pre-Processing) as per tuning configuration")
+            clean_ref_paths = ref_paths
         
         # 3. Generate TTS (Batched on GPU)
         logger.info("Pipeline: Stage 3 - Generating TTS with cleaned references (Batched)")
@@ -93,22 +100,22 @@ class AudioPipeline:
             ref_audio=clean_ref_paths if isinstance(ref_audio, list) else clean_ref_paths[0],
             ref_text=ref_text,
             language=language,
-            temperature=temperature,
-            max_new_tokens=max_new_tokens,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty
+            temperature=temperature
         )
         
         # 4. Post-processing: Resample & Noise Removal (Parallelized)
-        logger.info(f"Pipeline: Parallel post-processing {len(tts_wav_bytes_list)} generated outputs")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # We use list(executor.map(...)) to maintain order
-            final_wav_bytes_list = list(executor.map(
-                self._post_process_single_file, 
-                tts_wav_bytes_list, 
-                range(len(tts_wav_bytes_list))
-            ))
+        if RUN_POST_PROCESSING:
+            logger.info(f"Pipeline: Parallel post-processing {len(tts_wav_bytes_list)} generated outputs")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # We use list(executor.map(...)) to maintain order
+                final_wav_bytes_list = list(executor.map(
+                    self._post_process_single_file, 
+                    tts_wav_bytes_list, 
+                    range(len(tts_wav_bytes_list))
+                ))
+        else:
+            logger.info("Pipeline: Bypassing stages 4-5 (Post-Processing) as per tuning configuration")
+            final_wav_bytes_list = tts_wav_bytes_list
             
         return final_wav_bytes_list
 

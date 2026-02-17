@@ -12,10 +12,6 @@ class QueueItemRequest(BaseModel):
     speaker: Optional[str] = None
     language: LanguageEnum = LanguageEnum.AUTO
     temperature: float = 1.0
-    max_new_tokens: int = 2048
-    top_p: float = 0.80
-    top_k: int = 20
-    repetition_penalty: float = 1.05
     custom_id: Optional[str] = None       # user-defined tracking ID
 
 class QueueBatchSubmitRequest(BaseModel):

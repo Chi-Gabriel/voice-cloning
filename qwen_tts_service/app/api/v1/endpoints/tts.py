@@ -159,29 +159,9 @@ async def generate_voice_clone(request: VoiceCloneRequest):
         elif isinstance(lang, LanguageEnum):
             lang = LANGUAGE_MAP.get(lang, "Auto")
 
-        # Process ref_audio to resolve file IDs
-        processed_ref_audio = request.ref_audio
-        
-        # Helper to resolve a single ref audio item
-        def resolve_ref_audio(item):
-            # Check if it looks like a file ID (UUID-ish) but simplistic check for now
-            # Or check if it exists in file store
-            # For now, let's assume if it is NOT an absolute path starting with /, it might be an ID.
-            # actually better: check file_store.get_path(item)
-            if isinstance(item, str):
-                path = file_store.get_path(item)
-                if path:
-                    return str(path)
-            return item
-
-        if isinstance(processed_ref_audio, list):
-            processed_ref_audio = [resolve_ref_audio(item) for item in processed_ref_audio]
-        else:
-            processed_ref_audio = resolve_ref_audio(processed_ref_audio)
-
         audio_bytes_list = tts_engine.generate_voice_clone(
             text=request.text,
-            ref_audio=processed_ref_audio,
+            ref_audio=request.ref_audio, # Pass raw (ID or path), engine will resolve
             ref_text=request.ref_text,
             language=lang,
             temperature=request.temperature

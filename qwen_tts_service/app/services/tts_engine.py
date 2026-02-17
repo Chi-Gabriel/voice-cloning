@@ -22,7 +22,16 @@ class TTSEngine:
         return cls._instance
     
     def _initialize(self):
-        self.device = settings.DEVICE
+        # Robust device detection: Fall back to CPU if settings.DEVICE is cuda but no GPU is available
+        requested_device = settings.DEVICE
+        has_cuda = torch.cuda.is_available() and torch.cuda.device_count() > 0
+        
+        if requested_device.startswith("cuda") and not has_cuda:
+            logger.warning(f"CUDA requested ({requested_device}) but no GPUs detected. Falling back to CPU.")
+            self.device = "cpu"
+        else:
+            self.device = requested_device
+            
         self.models = {}
         self.model_configs = {
             "VoiceDesign": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
@@ -61,8 +70,9 @@ class TTSEngine:
         
         self.models = {}
         gc.collect()
-        torch.cuda.empty_cache()
-        logger.info("VRAM cleared.")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        logger.info("Memory cleared.")
 
     def _load_model(self, model_key: str, model_id: str):
         try:
@@ -84,7 +94,7 @@ class TTSEngine:
             self.models[model_key] = Qwen3TTSModel.from_pretrained(
                 model_source,
                 device_map=self.device,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 attn_implementation="flash_attention_2",
             )
             logger.info(f"{model_key} loaded successfully.")
@@ -92,21 +102,17 @@ class TTSEngine:
             logger.error(f"Failed to load {model_key}: {e}")
             raise e
 
-    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
+    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 1.0) -> List[bytes]:
         model = self._get_model("VoiceDesign")
         wavs, sr = model.generate_voice_design(
             text=text,
             language=language,
             instruct=instruct,
             temperature=temperature,
-            max_new_tokens=max_new_tokens,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
         )
         return self._process_output(wavs, sr)
 
-    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
+    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 1.0) -> List[bytes]:
         model = self._get_model("CustomVoice")
         wavs, sr = model.generate_custom_voice(
             text=text,
@@ -114,19 +120,32 @@ class TTSEngine:
             speaker=speaker,
             instruct=instruct,
             temperature=temperature,
-            max_new_tokens=max_new_tokens,
-            top_p=top_p,
-            top_k=top_k,
-            repetition_penalty=repetition_penalty,
         )
         return self._process_output(wavs, sr)
 
-    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
+    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 1.0) -> List[bytes]:
         model = self._get_model("VoiceClone")
         
+        # Resolve file IDs if present
+        from app.services.file_store import file_store
+        
+        def _resolve(item):
+            if isinstance(item, str) and not os.path.exists(item):
+                resolved_path = file_store.get_path(item)
+                if resolved_path:
+                    logger.info(f"Resolved file ID {item} to {resolved_path}")
+                    return str(resolved_path)
+            return item
+
         # Handle bytes as ref_audio (write to temp file)
         temp_files = []
         try:
+            # Resolve file IDs in strings or lists
+            if isinstance(ref_audio, list):
+                ref_audio = [_resolve(a) for a in ref_audio]
+            else:
+                ref_audio = _resolve(ref_audio)
+                
             processed_ref_audio = ref_audio
             if isinstance(ref_audio, bytes):
                 fd, path = tempfile.mkstemp(suffix=".wav")
@@ -186,10 +205,6 @@ class TTSEngine:
                 ref_text=ref_text,
                 x_vector_only_mode=x_vector_only_mode,
                 temperature=temperature,
-                max_new_tokens=max_new_tokens,
-                top_p=top_p,
-                top_k=top_k,
-                repetition_penalty=repetition_penalty,
             )
             
             outputs = self._process_output(wavs, sr)

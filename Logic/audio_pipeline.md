@@ -39,6 +39,12 @@ graph TD
 - **Batched GPU TTS**: Synchronizes items at Stage 3 to maximize GPU utilization via batch inference.
 - **Latency Optimization**: Prevents slow files from blocking faster files at stage boundaries.
 - **Cleanup**: Manages temporary file lifecycle across the parallel chains.
+- **Tuning**: Contains internal flags (`RUN_PRE_PROCESSING`, `RUN_POST_PROCESSING`) to bypass stages for performance testing or custom workflows.
+
+## Tuning & Configuration
+The pipeline behavior can be adjusted in `audio_pipeline.py` using these constants:
+- `RUN_PRE_PROCESSING`: Enables/Disables Stage 1 (Resample) and Stage 2 (Denoise) *before* TTS generation.
+- `RUN_POST_PROCESSING`: Enables/Disables Stage 4 (Resample) and Stage 5 (Denoise) *after* TTS generation.
 
 ## API Endpoint
 `POST /api/v1/voice-clone-enhanced`
