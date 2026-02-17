@@ -325,6 +325,47 @@ select:focus {
     color: var(--danger);
 }
 
+/* Status Badges for Queue Items */
+.status-queued {
+    background-color: #64748b !important;
+}
+
+.status-processing {
+    background-color: #3b82f6 !important;
+}
+
+.status-done {
+    background-color: #22c55e !important;
+}
+
+.status-error {
+    background-color: #ef4444 !important;
+}
+
+.queue-item.is-processing {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.05);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.2);
+}
+
+@keyframes status-pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.queue-item.is-processing .q-status {
+    animation: status-pulse 1.5s infinite ease-in-out;
+}
+
 .btn-secondary {
     background: transparent;
     border: 1px solid var(--border);

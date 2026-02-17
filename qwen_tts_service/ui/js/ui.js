@@ -375,10 +375,13 @@ const UI = {
         UI.batchQueue.forEach((item, index) => {
             const el = document.createElement('div');
             el.className = 'queue-item';
+            el.setAttribute('data-id', item.id);
+            el.setAttribute('data-status', 'queued');
             el.innerHTML = `
                 <div class="q-info">
                     <span class="q-type">${item.mode.replace('-', ' ')}</span>
                     <span class="q-text">${item.text}</span>
+                    <span class="q-status badge status-queued">queued</span>
                 </div>
                 <button class="btn-delete" onclick="UI.removeFromBatch(${index})">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -392,113 +395,133 @@ const UI = {
         if (UI.batchQueue.length === 0) return;
 
         const btn = document.getElementById('btn-run-batch');
+        const clearBtn = document.getElementById('btn-clear-queue');
         btn.disabled = true;
-        btn.textContent = 'Processing...';
+        clearBtn.disabled = true;
+        btn.textContent = 'Submitting...';
 
         try {
-            // Group by mode
-            const batches = {};
-            UI.batchQueue.forEach(item => {
-                if (!batches[item.mode]) batches[item.mode] = [];
-                batches[item.mode].push(item);
+            // 1. Map UI queue items to API QueueItemRequest
+            const queueItems = UI.batchQueue.map(item => {
+                let operation = item.mode;
+                if (item.mode === 'design') operation = 'voice_design';
+                if (item.mode === 'custom') operation = 'custom_voice';
+                if (item.mode === 'clone') {
+                    operation = item.enhanced ? 'voice_clone_enhanced' : 'voice_clone';
+                }
+
+                return {
+                    text: item.text,
+                    operation: operation,
+                    ref_audio: item.file_id || null,
+                    ref_text: item.refText || null,
+                    instruct: item.instruct || null,
+                    speaker: item.speaker || null,
+                    language: item.lang || 'auto',
+                    temperature: item.temp || 0.3,
+                    custom_id: item.id // Keep UI ID for tracking
+                };
             });
 
-            for (const mode in batches) {
-                const items = batches[mode];
-                const texts = items.map(i => i.text);
-                const langs = items.map(i => i.lang);
+            // 2. Submit to Queue
+            const response = await API.submitBatchToQueue(queueItems, `Web UI Batch ${new Date().toLocaleTimeString()}`);
+            const batchId = response.batch_id;
 
-                let response;
+            console.log("Batch submitted:", batchId);
+            btn.textContent = 'Processing...';
 
-                if (mode === 'design') {
-                    const instructs = items.map(i => i.instruct);
-                    const temps = items.map(i => i.temp);
-                    // Assumption: use temperature of first item for the batch request if scalar, 
-                    // but backend supports list or scalar. For simplicity, we use scalar if all same, 
-                    // or just pass first one if not specified or list of them.
-                    // Actually, let's pass the list!
-                    response = await API.voiceDesign(texts, instructs, langs, temps);
-                } else if (mode === 'custom') {
-                    const speakers = items.map(i => i.speaker);
-                    const instructs = items.map(i => i.instruct);
-                    const temps = items.map(i => i.temp);
-                    response = await API.customVoice(texts, speakers, langs, instructs, temps);
-                } else if (mode === 'clone') {
-                    // Group by file_id for optimized batching
-                    const fileGroups = {};
-                    const sequentialItems = [];
-
-                    items.forEach(item => {
-                        if (item.file_id) {
-                            if (!fileGroups[item.file_id]) fileGroups[item.file_id] = [];
-                            fileGroups[item.file_id].push(item);
-                        } else {
-                            sequentialItems.push(item); // Fallback for raw files (shouldn't happen with new logic)
-                        }
-                    });
-
-                    // 1. Process File Groups (Optimized Batch)
-                    for (const fileId in fileGroups) {
-                        // Group by enhanced status within the file group
-                        const enhancedGroups = {};
-                        fileGroups[fileId].forEach(item => {
-                            const key = item.enhanced ? 'enhanced' : 'standard';
-                            if (!enhancedGroups[key]) enhancedGroups[key] = [];
-                            enhancedGroups[key].push(item);
-                        });
-
-                        for (const key in enhancedGroups) {
-                            const groupItems = enhancedGroups[key];
-                            const isEnhanced = key === 'enhanced';
-                            const groupTexts = groupItems.map(i => i.text);
-                            const groupLangs = groupItems.map(i => i.lang);
-                            const groupRefTexts = groupItems.map(i => i.refText);
-
-                            const res = await API.voiceClone(groupTexts, fileId, groupRefTexts, groupLangs, groupItems.map(i => i.temp), isEnhanced);
-                            if (res && res.items) {
-                                res.items.forEach((r, idx) => {
-                                    const originalItem = groupItems[idx];
-                                    const text = originalItem ? originalItem.text : "";
-                                    const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                                    console.log(`Batch Result [${idx}] (${key}): ${text} -> ${url}`);
-                                    UI.addToHistory(mode, url, res.performance, text);
-                                });
-                            }
-                        }
-                    }
-
-                    // 2. Process Sequential (Fallback)
-                    for (const item of sequentialItems) {
-                        const res = await API.voiceCloneFile(item.text, item.file, item.refText, item.lang, item.temp, item.enhanced);
-                        if (res && res.items) {
-                            res.items.forEach(r => {
-                                const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                                UI.addToHistory(mode, url, res.performance, item.text);
-                            });
-                        }
-                    }
-                    continue;
-                }
-
-                if (response && response.items) {
-                    response.items.forEach((r, idx) => {
-                        const originalItem = items[idx];
-                        const text = originalItem ? originalItem.text : "";
-                        const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                        UI.addToHistory(mode, url, response.performance, text);
-                    });
-                }
-            }
-
-            // Clear queue on success
-            UI.batchQueue = [];
-            UI.updateBatchUI();
+            // 3. Start Polling
+            UI.pollQueueStatus(batchId);
 
         } catch (error) {
             alert("Batch Error: " + error.message);
-        } finally {
             btn.disabled = false;
+            clearBtn.disabled = false;
             btn.textContent = 'Run Batch';
+        }
+    },
+
+    pollQueueStatus: async (batchId) => {
+        const btn = document.getElementById('btn-run-batch');
+        const clearBtn = document.getElementById('btn-clear-queue');
+
+        const poll = async () => {
+            try {
+                const statusRes = await API.getQueueStatus(batchId);
+                UI.updateQueueProgress(statusRes);
+
+                if (statusRes.status === 'completed' || statusRes.status === 'partial' || statusRes.status === 'error') {
+                    // Batch finished
+                    UI.handleQueueCompletion(batchId);
+                    btn.disabled = false;
+                    clearBtn.disabled = false;
+                    btn.textContent = 'Run Batch';
+                    return;
+                }
+
+                // Continue polling
+                setTimeout(poll, 2000);
+            } catch (error) {
+                console.error("Polling error:", error);
+                btn.disabled = false;
+                clearBtn.disabled = false;
+                btn.textContent = 'Run Batch';
+            }
+        };
+
+        poll();
+    },
+
+    updateQueueProgress: (statusResponse) => {
+        const count = document.getElementById('queue-count');
+        count.textContent = `${statusResponse.completed}/${statusResponse.total}`;
+
+        // Update individual item statuses in UI
+        statusResponse.items.forEach(item => {
+            const el = document.querySelector(`.queue-item[data-id="${item.custom_id}"]`);
+            if (el) {
+                el.setAttribute('data-status', item.status);
+                const statusBadge = el.querySelector('.q-status');
+                if (statusBadge) {
+                    statusBadge.textContent = item.status;
+                    statusBadge.className = `q-status badge status-${item.status}`;
+                }
+
+                // If processing, add a class for animation
+                if (item.status === 'processing') {
+                    el.classList.add('is-processing');
+                } else {
+                    el.classList.remove('is-processing');
+                }
+            }
+        });
+    },
+
+    handleQueueCompletion: async (batchId) => {
+        try {
+            const results = await API.getQueueResults(batchId);
+
+            results.items.forEach(item => {
+                if (item.status === 'done' && item.url) {
+                    // Find original item info for history
+                    const originalItem = UI.batchQueue.find(i => i.id === item.custom_id);
+                    const mode = originalItem ? originalItem.mode : 'unknown';
+                    const text = originalItem ? originalItem.text : (item.custom_id || "Queued Text");
+
+                    UI.addToHistory(mode, item.url, 0, text);
+                } else if (item.status === 'error') {
+                    console.error(`Item ${item.item_id} failed: ${item.error}`);
+                }
+            });
+
+            // Clear the queue UI after a short delay
+            setTimeout(() => {
+                UI.batchQueue = [];
+                UI.updateBatchUI();
+            }, 3000);
+
+        } catch (error) {
+            console.error("Error handling queue completion:", error);
         }
     },
     updateTime: () => {

@@ -98,5 +98,21 @@ const API = {
         formData.append('temperature', temperature);
 
         return API.request(endpoint, 'POST', formData, true);
+    },
+
+    // Queue Endpoints
+    submitBatchToQueue: (items, label = null) => {
+        return API.request('/queue/submit', 'POST', {
+            items,
+            label
+        });
+    },
+
+    getQueueStatus: (batchId) => {
+        return API.request(`/queue/status/${batchId}`, 'GET');
+    },
+
+    getQueueResults: (batchId) => {
+        return API.request(`/queue/results/${batchId}`, 'GET');
     }
 };
