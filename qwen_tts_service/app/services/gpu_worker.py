@@ -72,7 +72,11 @@ class GPUWorker:
         try:
             # Common parameters
             texts = [item["text"] for item in items]
-            temperature = items[0].get("temperature", 0.3)
+            temperature = items[0].get("temperature", 1.0)
+            max_new_tokens = items[0].get("max_new_tokens", 2048)
+            top_p = items[0].get("top_p", 0.80)
+            top_k = items[0].get("top_k", 20)
+            repetition_penalty = items[0].get("repetition_penalty", 1.05)
             
             # Map the language code (e.g. "en") to model supported string (e.g. "English")
             languages = []
@@ -89,7 +93,11 @@ class GPUWorker:
                     text=texts,
                     instruct=instructs,
                     language=languages,
-                    temperature=temperature
+                    temperature=temperature,
+                    max_new_tokens=max_new_tokens,
+                    top_p=top_p,
+                    top_k=top_k,
+                    repetition_penalty=repetition_penalty
                 )
 
             elif operation == "custom_voice":
@@ -100,7 +108,11 @@ class GPUWorker:
                     speaker=speakers,
                     language=languages,
                     instruct=instructs,
-                    temperature=temperature
+                    temperature=temperature,
+                    max_new_tokens=max_new_tokens,
+                    top_p=top_p,
+                    top_k=top_k,
+                    repetition_penalty=repetition_penalty
                 )
 
             elif operation == "voice_clone":
@@ -111,7 +123,11 @@ class GPUWorker:
                     ref_audio=ref_audios,
                     ref_text=ref_texts,
                     language=languages,
-                    temperature=temperature
+                    temperature=temperature,
+                    max_new_tokens=max_new_tokens,
+                    top_p=top_p,
+                    top_k=top_k,
+                    repetition_penalty=repetition_penalty
                 )
 
             elif operation == "voice_clone_enhanced":
@@ -122,7 +138,11 @@ class GPUWorker:
                     ref_audio=ref_audios,
                     ref_text=ref_texts,
                     language=languages,
-                    temperature=temperature
+                    temperature=temperature,
+                    max_new_tokens=max_new_tokens,
+                    top_p=top_p,
+                    top_k=top_k,
+                    repetition_penalty=repetition_penalty
                 )
             
             # Save results and update status

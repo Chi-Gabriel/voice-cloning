@@ -67,7 +67,11 @@ class AudioPipeline:
         ref_audio: Union[str, List[str]], 
         ref_text: Optional[Union[str, List[str]]] = None, 
         language: Union[str, List[str]] = "Auto", 
-        temperature: float = 0.3
+        temperature: float = 1.0,
+        max_new_tokens: int = 2048,
+        top_p: float = 0.80,
+        top_k: int = 20,
+        repetition_penalty: float = 1.05
     ) -> List[bytes]:
         """
         Runs the optimized enhanced voice cloning pipeline:
@@ -89,7 +93,11 @@ class AudioPipeline:
             ref_audio=clean_ref_paths if isinstance(ref_audio, list) else clean_ref_paths[0],
             ref_text=ref_text,
             language=language,
-            temperature=temperature
+            temperature=temperature,
+            max_new_tokens=max_new_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty
         )
         
         # 4. Post-processing: Resample & Noise Removal (Parallelized)

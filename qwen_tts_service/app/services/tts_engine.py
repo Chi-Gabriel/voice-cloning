@@ -80,11 +80,11 @@ class TTSEngine:
             model_source = local_path if os.path.exists(local_path) else model_id
             
             logger.info(f"Loading {model_key} model from {model_source}...")
-            # We use torch.dtype directly to avoid the warning seen in logs
+            # Use torch_dtype correctly to avoid the Flash Attention warning
             self.models[model_key] = Qwen3TTSModel.from_pretrained(
                 model_source,
                 device_map=self.device,
-                dtype=torch.bfloat16,
+                torch_dtype=torch.bfloat16,
                 attn_implementation="flash_attention_2",
             )
             logger.info(f"{model_key} loaded successfully.")
@@ -92,17 +92,21 @@ class TTSEngine:
             logger.error(f"Failed to load {model_key}: {e}")
             raise e
 
-    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 0.3) -> List[bytes]:
+    def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
         model = self._get_model("VoiceDesign")
         wavs, sr = model.generate_voice_design(
             text=text,
             language=language,
             instruct=instruct,
             temperature=temperature,
+            max_new_tokens=max_new_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
         )
         return self._process_output(wavs, sr)
 
-    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 0.3) -> List[bytes]:
+    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
         model = self._get_model("CustomVoice")
         wavs, sr = model.generate_custom_voice(
             text=text,
@@ -110,10 +114,14 @@ class TTSEngine:
             speaker=speaker,
             instruct=instruct,
             temperature=temperature,
+            max_new_tokens=max_new_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
         )
         return self._process_output(wavs, sr)
 
-    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 0.3) -> List[bytes]:
+    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 1.0, max_new_tokens: int = 2048, top_p: float = 0.80, top_k: int = 20, repetition_penalty: float = 1.05) -> List[bytes]:
         model = self._get_model("VoiceClone")
         
         # Handle bytes as ref_audio (write to temp file)
@@ -178,6 +186,10 @@ class TTSEngine:
                 ref_text=ref_text,
                 x_vector_only_mode=x_vector_only_mode,
                 temperature=temperature,
+                max_new_tokens=max_new_tokens,
+                top_p=top_p,
+                top_k=top_k,
+                repetition_penalty=repetition_penalty,
             )
             
             outputs = self._process_output(wavs, sr)
