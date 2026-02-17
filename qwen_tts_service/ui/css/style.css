@@ -463,6 +463,88 @@ select:focus {
     transform: none;
 }
 
+/* Toggle Switch & Settings Row */
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    transition: var(--transition);
+}
+
+.setting-row:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent);
+}
+
+.setting-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.setting-info label {
+    margin-bottom: 0;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+/* The Switch - the box around the slider */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+/* Hide default HTML checkbox */
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+/* The slider-toggle */
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border);
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider-toggle:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider-toggle {
+    background-color: var(--accent);
+}
+
+input:focus+.slider-toggle {
+    box-shadow: 0 0 1px var(--accent);
+}
+
+input:checked+.slider-toggle:before {
+    transform: translateX(20px);
+}
+
 #time-display {
     font-family: monospace;
     font-size: 0.9rem;

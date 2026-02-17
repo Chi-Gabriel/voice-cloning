@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     
     # Device Configuration
     DEVICE: str = "cuda:0"
+    
+    # Audio Pipeline Configuration
+    RESAMPLE_TARGET_SR: int = 48000
+    RESAMPLE_MAX_WORKERS: int = 3
+    NOISE_REMOVAL_MAX_WORKERS: int = 3
+    
     # Security
     API_KEY: Optional[str] = None
     

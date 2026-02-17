@@ -23,6 +23,7 @@ const UI = {
         vcLanguage: document.getElementById('vc-language'),
         vcTemp: document.getElementById('vc-temperature'),
         vcTempVal: document.getElementById('vc-temp-value'),
+        vcEnhanced: document.getElementById('vc-enhanced'),
         btnClone: document.getElementById('btn-generate-clone'),
 
         // Custom Voice
@@ -42,6 +43,7 @@ const UI = {
 
     wavesurfer: null,
     batchQueue: [],
+    currentVCFile: null, // Track selected file for Voice Cloning
 
     // ISO Languages
     languages: [
@@ -189,6 +191,8 @@ const UI = {
             if (files.length > 0) {
                 const file = files[0];
                 if (file.type.startsWith('audio/')) {
+                    UI.currentVCFile = file; // Store the file globally for this tab
+                    UI.wavesurfer.load(URL.createObjectURL(file)); // Also load into visualizer for preview if desired
                     UI.elements.vcPreview.src = URL.createObjectURL(file);
                     UI.elements.vcPreview.style.display = 'block';
                     UI.elements.vcDropArea.querySelector('.file-msg').textContent = file.name;
@@ -237,11 +241,17 @@ const UI = {
                 if (!text || !instruct) throw new Error('Text and Instruction are required');
                 response = await API.voiceDesign(text, instruct, UI.elements.vdLanguage.value, parseFloat(UI.elements.vdTemp.value));
             } else if (mode === 'clone') {
-                const text = UI.elements.vcText.value;
-                const file = UI.elements.vcFile.files[0];
+                const text = UI.elements.vcText.value.trim();
+                const fileInput = UI.elements.vcFile;
+                const file = UI.currentVCFile || (fileInput.files && fileInput.files[0]);
                 const refText = UI.elements.vcRefText.value;
-                if (!text || !file) throw new Error('Text and Reference Audio are required');
-                response = await API.voiceCloneFile(text, file, refText, UI.elements.vcLanguage.value, parseFloat(UI.elements.vcTemp.value)); // Using multipart endpoint
+                const enhanced = UI.elements.vcEnhanced.checked;
+
+                if (!text) throw new Error('Please enter the text you want to speak.');
+                if (!file) throw new Error('Please select or drag a reference audio file first.');
+
+                console.log("Generating Enhanced Clone:", { enhanced, textLength: text.length, fileName: file.name });
+                response = await API.voiceCloneFile(text, file, refText, UI.elements.vcLanguage.value, parseFloat(UI.elements.vcTemp.value), enhanced);
             } else if (mode === 'custom') {
                 const text = UI.elements.cvText.value;
                 const speaker = UI.elements.cvSpeaker.value;
@@ -295,14 +305,16 @@ const UI = {
 
                 UI.batchQueue.push({ id: Utils.generateId(), mode, text, instruct, lang, temp });
             } else if (mode === 'clone') {
-                const text = UI.elements.vcText.value;
+                const text = UI.elements.vcText.value.trim();
                 const refText = UI.elements.vcRefText.value;
                 const lang = UI.elements.vcLanguage.value;
                 const temp = parseFloat(UI.elements.vcTemp.value);
-                const file = UI.elements.vcFile.files[0];
+                const enhanced = UI.elements.vcEnhanced.checked;
+                const fileInput = UI.elements.vcFile;
+                const file = UI.currentVCFile || (fileInput.files && fileInput.files[0]);
 
-                if (!text) return alert("Text is required");
-                if (!file) return alert("Reference Audio is required");
+                if (!text) return alert("Please enter text before adding to batch.");
+                if (!file) return alert("Please select a reference audio file first.");
 
                 // Upload file first
                 btn.textContent = 'Uploading...';
@@ -310,7 +322,7 @@ const UI = {
                 const file_id = uploadRes.file_id;
                 const fileName = file.name;
 
-                UI.batchQueue.push({ id: Utils.generateId(), mode, text, refText, lang, file_id, fileName, temp });
+                UI.batchQueue.push({ id: Utils.generateId(), mode, text, refText, lang, file_id, fileName, temp, enhanced });
             } else if (mode === 'custom') {
                 const text = UI.elements.cvText.value;
                 const speaker = UI.elements.cvSpeaker.value;
@@ -427,27 +439,37 @@ const UI = {
 
                     // 1. Process File Groups (Optimized Batch)
                     for (const fileId in fileGroups) {
-                        const groupItems = fileGroups[fileId];
-                        const groupTexts = groupItems.map(i => i.text);
-                        // Assumption: Language is same for the file? Protocol says list is supported.
-                        const groupLangs = groupItems.map(i => i.lang);
-                        const groupRefTexts = groupItems.map(i => i.refText);
+                        // Group by enhanced status within the file group
+                        const enhancedGroups = {};
+                        fileGroups[fileId].forEach(item => {
+                            const key = item.enhanced ? 'enhanced' : 'standard';
+                            if (!enhancedGroups[key]) enhancedGroups[key] = [];
+                            enhancedGroups[key].push(item);
+                        });
 
-                        const res = await API.voiceClone(groupTexts, fileId, groupRefTexts, groupLangs, groupItems.map(i => i.temp));
-                        if (res && res.items) {
-                            res.items.forEach((r, idx) => {
-                                const originalItem = groupItems[idx];
-                                const text = originalItem ? originalItem.text : "";
-                                const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
-                                console.log(`Batch Result [${idx}]: ${text} -> ${url}`);
-                                UI.addToHistory(mode, url, res.performance, text);
-                            });
+                        for (const key in enhancedGroups) {
+                            const groupItems = enhancedGroups[key];
+                            const isEnhanced = key === 'enhanced';
+                            const groupTexts = groupItems.map(i => i.text);
+                            const groupLangs = groupItems.map(i => i.lang);
+                            const groupRefTexts = groupItems.map(i => i.refText);
+
+                            const res = await API.voiceClone(groupTexts, fileId, groupRefTexts, groupLangs, groupItems.map(i => i.temp), isEnhanced);
+                            if (res && res.items) {
+                                res.items.forEach((r, idx) => {
+                                    const originalItem = groupItems[idx];
+                                    const text = originalItem ? originalItem.text : "";
+                                    const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));
+                                    console.log(`Batch Result [${idx}] (${key}): ${text} -> ${url}`);
+                                    UI.addToHistory(mode, url, res.performance, text);
+                                });
+                            }
                         }
                     }
 
                     // 2. Process Sequential (Fallback)
                     for (const item of sequentialItems) {
-                        const res = await API.voiceCloneFile(item.text, item.file, item.refText, item.lang, item.temp);
+                        const res = await API.voiceCloneFile(item.text, item.file, item.refText, item.lang, item.temp, item.enhanced);
                         if (res && res.items) {
                             res.items.forEach(r => {
                                 const url = r.url || URL.createObjectURL(Utils.base64ToBlob(r.audio_base64));

@@ -12,3 +12,5 @@ soundfile
 numpy
 scipy
 librosa
+deepfilternet
+soxr

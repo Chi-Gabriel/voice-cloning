@@ -76,9 +76,10 @@ const API = {
         return API.request('/files/upload', 'POST', formData, true);
     },
 
-    voiceClone: (text, refAudio, refText, language, temperature = 0.3) => {
+    voiceClone: (text, refAudio, refText, language, temperature = 0.3, enhanced = false) => {
         // refAudio can be a URL/Path string OR a file_id string
-        return API.request('/voice-clone', 'POST', {
+        const endpoint = enhanced ? '/voice-clone-enhanced' : '/voice-clone';
+        return API.request(endpoint, 'POST', {
             text: Array.isArray(text) ? text : [text],
             ref_audio: refAudio,
             ref_text: refText,
@@ -87,7 +88,8 @@ const API = {
         });
     },
 
-    voiceCloneFile: (text, file, refText, language, temperature = 0.3) => {
+    voiceCloneFile: (text, file, refText, language, temperature = 0.3, enhanced = false) => {
+        const endpoint = enhanced ? '/voice-clone-enhanced-file' : '/voice-clone-file';
         const formData = new FormData();
         formData.append('text', text);
         formData.append('ref_audio', file);
@@ -95,6 +97,6 @@ const API = {
         formData.append('language', language);
         formData.append('temperature', temperature);
 
-        return API.request('/voice-clone-file', 'POST', formData, true);
+        return API.request(endpoint, 'POST', formData, true);
     }
 };

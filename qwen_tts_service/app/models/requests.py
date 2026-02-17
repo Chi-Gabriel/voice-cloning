@@ -86,3 +86,16 @@ class VoiceCloneRequest(BaseModel):
                 "temperature": 0.3
             }
         }
+
+class VoiceCloneEnhancedRequest(VoiceCloneRequest):
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": ["First sentence.", "Second sentence."],
+                "ref_audio": ["/path/to/audio1.wav", "/path/to/audio2.wav"],
+                "ref_text": ["Reference text 1", None],
+                "language": "en",
+                "custom_id": ["id_123", "id_456"],
+                "temperature": 0.3
+            }
+        }
