@@ -1,0 +1,26 @@
+# Large model files and outputs
+storage/
+test/
+# Python cache
+__pycache__/
+*.pyc
+
+# Local environment files
+.env
+.venv
+venv/
+
+# Large binary wheels
+scripts/*.whl
+
+# Git & config
+.git
+#.gitignore
+code-rules.md
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.json
+*.md
+!Logic/
