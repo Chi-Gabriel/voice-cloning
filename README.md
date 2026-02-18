@@ -76,7 +76,13 @@ The API will be available at **http://localhost:8000**.
 ### API Features
 - **Shared Models**: Uses the same `storage/models` directory as ComfyUI, so you don't need to download models twice.
 - **Batch Processing**: Supports batch generation for high throughput.
-- **Configurable**: Control which models to load via environment variables in `docker-compose.yaml`.
+- **ASR Support**: Built-in endpoints for high-performance audio transcription using Qwen3-ASR.
+- **VRAM Coordination**: Intelligent model swapping between TTS and ASR to fit on a single 16GB GPU.
+
+### Key ASR Endpoints
+- `POST /api/v1/transcribe`: Efficient batch transcription using `file_id`s.
+- `POST /api/v1/transcribe/file`: Single-file direct upload transcription.
+- **Async Queue**: Integrated with the batch queue (`operation: "transcribe"`) for large-scale processing.
 
 ## Updating Dependencies
 

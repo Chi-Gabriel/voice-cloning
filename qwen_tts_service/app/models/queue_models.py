@@ -4,7 +4,7 @@ from .requests import LanguageEnum
 
 class QueueItemRequest(BaseModel):
     text: str
-    operation: Literal["voice_design", "voice_clone", "voice_clone_enhanced", "custom_voice"]
+    operation: Literal["voice_design", "voice_clone", "voice_clone_enhanced", "custom_voice", "transcribe"]
     # Operation-specific fields
     ref_audio: Optional[str] = None       # file_id or path
     ref_text: Optional[str] = None

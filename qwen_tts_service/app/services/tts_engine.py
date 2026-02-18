@@ -20,9 +20,12 @@ class TTSEngine:
             cls._instance = super(TTSEngine, cls).__new__(cls)
             cls._instance._initialize()
         return cls._instance
-    
+
     def _initialize(self):
-        # Robust device detection: Fall back to CPU if settings.DEVICE is cuda but no GPU is available
+        from app.services.model_manager import model_manager
+        model_manager.register_engine("tts", self)
+
+        # Robust device detection
         requested_device = settings.DEVICE
         has_cuda = torch.cuda.is_available() and torch.cuda.device_count() > 0
         
@@ -39,10 +42,17 @@ class TTSEngine:
             "CustomVoice": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
         }
 
+    def unload(self):
+        """Public interface for ModelManager."""
+        self._unload_all_models()
+
     def _get_model(self, model_key: str):
         # Single Active Model Policy:
         # If the requested model is not loaded, unload everything else first.
         if model_key not in self.models:
+            from app.services.model_manager import model_manager
+            model_manager.acquire("tts")
+            
             self._unload_all_models()
             
             # Check if model type is enabled in config

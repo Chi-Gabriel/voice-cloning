@@ -31,7 +31,13 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     QUEUE_MAX_BATCH_SIZE: int = 8
     QUEUE_POLL_INTERVAL: float = 0.1
-    
+
+    # ASR Configuration
+    # Mapping shared models volume
+    ASR_MODEL_ROOT: str = "/app/models/Qwen3-ASR"
+    ENABLE_ASR: bool = True
+    ASR_MAX_BATCH_SIZE: int = 8 # Safe default for batching
+
     class Config:
         env_file = ".env"
 

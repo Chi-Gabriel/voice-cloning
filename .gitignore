@@ -23,4 +23,4 @@ code-rules.md
 *.ogg
 *.json
 *.md
-!Logic/
+!Logic/*

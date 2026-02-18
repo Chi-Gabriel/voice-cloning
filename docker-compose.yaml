@@ -58,6 +58,7 @@ services:
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - API_KEY=${API_KEY:-}
       - REDIS_URL=redis://redis:6379/0
+      - QUEUE_MAX_BATCH_SIZE=16
     volumes:
 
       # Mount the same models directory

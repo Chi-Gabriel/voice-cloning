@@ -9,6 +9,8 @@ from app.services.queue_service import queue_service
 from app.services.tts_engine import tts_engine
 from app.services.audio_pipeline import audio_pipeline
 from app.services.file_store import file_store
+from app.services.asr_engine import asr_engine
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +126,39 @@ class GPUWorker:
                     language=languages,
                     temperature=temperature
                 )
+            elif operation == "transcribe":
+                ref_audios = []
+                for item in items:
+                    path = item.get("ref_audio")
+                    # Try to resolve file_id
+                    resolved = file_store.get_path(path)
+                    ref_audios.append(str(resolved) if resolved else path)
+                
+                # Use asr language mapping (raw value for now or auto)
+                asr_results = asr_engine.transcribe(
+                    audio=ref_audios,
+                    language=None if languages[0] == "Auto" else languages, # Simple assumption for now
+                    return_timestamps=items[0].get("return_timestamps", False)
+                )
+                
+                # Convert results to a serializable format for storage
+                results = []
+                for res in asr_results:
+                    out = {"text": res.text, "language": res.language}
+                    if hasattr(res, 'time_stamps') and res.time_stamps:
+                        out["timestamps"] = [
+                            {"start": ts.start_time, "end": ts.end_time, "text": ts.text}
+                            for ts in res.time_stamps
+                        ]
+                    results.append(json.dumps(out).encode('utf-8'))
             
             # Save results and update status
             for i, item in enumerate(items):
                 item_id = item["item_id"]
                 try:
                     audio_content = results[i]
-                    filename = f"queue_{operation}_{item_id}.wav"
+                    ext = ".json" if operation == "transcribe" else ".wav"
+                    filename = f"queue_{operation}_{item_id}{ext}"
                     file_id = file_store.save(audio_content, filename)
                     url = f"/api/v1/files/{file_id}"
                     queue_service.mark_done(item_id, url)

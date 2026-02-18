@@ -19,7 +19,10 @@ RUN apt-get update && apt-get install -y \
 
 # Install Python dependencies
 COPY qwen_tts_service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir transformers==4.57.3 && \
+    pip install --no-cache-dir qwen-tts && \
+    pip install --no-cache-dir qwen-asr --no-deps && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Install Flash Attention if available locally, otherwise download
 COPY scripts/flash_attn-*.whl /tmp/

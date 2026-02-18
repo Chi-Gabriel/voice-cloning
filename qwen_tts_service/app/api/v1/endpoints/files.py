@@ -27,9 +27,10 @@ async def get_file(file_id: str):
     file_path = file_store.get_path(file_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found or expired")
+    media_type = "application/json" if file_path.suffix == ".json" else "audio/wav"
         
     return FileResponse(
         path=file_path,
         filename=file_path.name,
-        media_type="audio/wav"  # Defaulting, or could guess
+        media_type=media_type
     )

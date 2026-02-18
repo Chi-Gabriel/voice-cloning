@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.v1.endpoints import tts, files, pipeline, queue
+from app.api.v1.endpoints import tts, files, pipeline, queue, asr
 from app.core.security import get_api_key
 from app.services.gpu_worker import gpu_worker
 
@@ -45,6 +45,13 @@ app.include_router(
     tts.router, 
     prefix=settings.API_V1_STR, 
     tags=["TTS"],
+    dependencies=[Depends(get_api_key)]
+)
+
+app.include_router(
+    asr.router,
+    prefix=settings.API_V1_STR,
+    tags=["ASR"],
     dependencies=[Depends(get_api_key)]
 )
 
