@@ -2,6 +2,7 @@ import torch
 import logging
 import gc
 import os
+import threading
 from typing import List, Union, Optional
 from qwen_asr import Qwen3ASRModel
 from app.core.config import settings
@@ -16,6 +17,7 @@ ASR_MAX_NEW_TOKENS = 256
 
 class ASREngine:
     _instance = None
+    _lock = threading.Lock()
     
     def __new__(cls):
         if cls._instance is None:
@@ -83,20 +85,21 @@ class ASREngine:
         Transcribe audio files using GPU batch inference.
         Returns a list of result objects.
         """
-        self._ensure_model_loaded()
-        
-        # Ensure audio is a list for consistent batch processing
-        if isinstance(audio, str):
-            audio = [audio]
-            if language and isinstance(language, str):
-                language = [language]
+        with self._lock:
+            self._ensure_model_loaded()
+            
+            # Ensure audio is a list for consistent batch processing
+            if isinstance(audio, str):
+                audio = [audio]
+                if language and isinstance(language, str):
+                    language = [language]
 
-        logger.info(f"ASR Engine: Transcribing batch of {len(audio)} items")
-        results = self.model.transcribe(
-            audio=audio,
-            language=language,
-            return_time_stamps=return_timestamps
-        )
-        return results
+            logger.info(f"ASR Engine: Transcribing batch of {len(audio)} items")
+            results = self.model.transcribe(
+                audio=audio,
+                language=language,
+                return_time_stamps=return_timestamps
+            )
+            return results
 
 asr_engine = ASREngine()

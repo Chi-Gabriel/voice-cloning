@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     RESAMPLE_TARGET_SR: int = 48000
     RESAMPLE_MAX_WORKERS: int = 3
     NOISE_REMOVAL_MAX_WORKERS: int = 3
+    TTS_MAX_NEW_TOKENS: int = 512 # Caps generation to prevent hallucinations
     
     # Security
     API_KEY: Optional[str] = None

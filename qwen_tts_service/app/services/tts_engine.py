@@ -1,3 +1,7 @@
+import threading
+from typing import List, Optional, Union, Tuple
+from qwen_tts import Qwen3TTSModel
+from app.core.config import settings
 import torch
 import soundfile as sf
 import os
@@ -6,14 +10,12 @@ import gc
 import logging
 import tempfile
 import shutil
-from typing import List, Optional, Union, Tuple
-from qwen_tts import Qwen3TTSModel
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class TTSEngine:
     _instance = None
+    _lock = threading.Lock()
     
     def __new__(cls):
         if cls._instance is None:
@@ -113,126 +115,132 @@ class TTSEngine:
             raise e
 
     def generate_voice_design(self, text: Union[str, List[str]], instruct: Union[str, List[str]], language: Union[str, List[str]] = "Auto", temperature: float = 1.0) -> List[bytes]:
-        model = self._get_model("VoiceDesign")
-        wavs, sr = model.generate_voice_design(
-            text=text,
-            language=language,
-            instruct=instruct,
-            temperature=temperature,
-        )
-        return self._process_output(wavs, sr)
-
-    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 1.0) -> List[bytes]:
-        model = self._get_model("CustomVoice")
-        wavs, sr = model.generate_custom_voice(
-            text=text,
-            language=language,
-            speaker=speaker,
-            instruct=instruct,
-            temperature=temperature,
-        )
-        return self._process_output(wavs, sr)
-
-    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 1.0) -> List[bytes]:
-        model = self._get_model("VoiceClone")
-        
-        # Resolve file IDs if present
-        from app.services.file_store import file_store
-        
-        def _resolve(item):
-            if isinstance(item, str) and not os.path.exists(item):
-                resolved_path = file_store.get_path(item)
-                if resolved_path:
-                    logger.info(f"Resolved file ID {item} to {resolved_path}")
-                    return str(resolved_path)
-            return item
-
-        # Handle bytes as ref_audio (write to temp file)
-        temp_files = []
-        try:
-            # Resolve file IDs in strings or lists
-            if isinstance(ref_audio, list):
-                ref_audio = [_resolve(a) for a in ref_audio]
-            else:
-                ref_audio = _resolve(ref_audio)
-                
-            processed_ref_audio = ref_audio
-            if isinstance(ref_audio, bytes):
-                fd, path = tempfile.mkstemp(suffix=".wav")
-                with os.fdopen(fd, 'wb') as f:
-                    f.write(ref_audio)
-                processed_ref_audio = path
-                temp_files.append(path)
-            elif isinstance(ref_audio, list):
-                processed_ref_audio = []
-                for item in ref_audio:
-                    if isinstance(item, bytes):
-                        fd, path = tempfile.mkstemp(suffix=".wav")
-                        with os.fdopen(fd, 'wb') as f:
-                            f.write(item)
-                        processed_ref_audio.append(path)
-                        temp_files.append(path)
-                    else:
-                        processed_ref_audio.append(item)
-
-            # Determine x_vector_only_mode based on ref_text
-            if isinstance(text, list):
-                # Batch mode
-                if ref_text is None:
-                    x_vector_only_mode = [True] * len(text)
-                    ref_text = [""] * len(text)
-                elif isinstance(ref_text, list):
-                    x_vector_only_mode = [t is None or t == "" for t in ref_text]
-                    # Replace None with empty string for the model
-                    ref_text = [t if t is not None else "" for t in ref_text]
-                else:
-                    # Single ref_text for a batch
-                    x_vector_only_mode = [False] * len(text)
-            else:
-                # Single mode
-                x_vector_only_mode = ref_text is None or ref_text == ""
-                if ref_text is None:
-                    ref_text = ""
-
-            # Ensure all batch inputs have matching lengths for the library
-            if isinstance(text, list):
-                count = len(text)
-                if not isinstance(language, list):
-                    language = [language] * count
-                if not isinstance(processed_ref_audio, list):
-                    processed_ref_audio = [processed_ref_audio] * count
-                if not isinstance(ref_text, list):
-                    ref_text = [ref_text] * count
-                if not isinstance(x_vector_only_mode, list):
-                    x_vector_only_mode = [x_vector_only_mode] * count
-
-            logger.info(f"Generating voice clone batch of size {len(text) if isinstance(text, list) else 1}")
-            
-            wavs, sr = model.generate_voice_clone(
+        with self._lock:
+            model = self._get_model("VoiceDesign")
+            wavs, sr = model.generate_voice_design(
                 text=text,
                 language=language,
-                ref_audio=processed_ref_audio,
-                ref_text=ref_text,
-                x_vector_only_mode=x_vector_only_mode,
+                instruct=instruct,
                 temperature=temperature,
+                max_new_tokens=settings.TTS_MAX_NEW_TOKENS
             )
+            return self._process_output(wavs, sr)
+
+    def generate_custom_voice(self, text: Union[str, List[str]], speaker: Union[str, List[str]], language: Union[str, List[str]] = "Auto", instruct: Optional[Union[str, List[str]]] = None, temperature: float = 1.0) -> List[bytes]:
+        with self._lock:
+            model = self._get_model("CustomVoice")
+            wavs, sr = model.generate_custom_voice(
+                text=text,
+                language=language,
+                speaker=speaker,
+                instruct=instruct,
+                temperature=temperature,
+                max_new_tokens=settings.TTS_MAX_NEW_TOKENS
+            )
+            return self._process_output(wavs, sr)
+
+    def generate_voice_clone(self, text: Union[str, List[str]], ref_audio: Union[str, List[str], bytes], ref_text: Optional[Union[str, List[str]]] = None, language: Union[str, List[str]] = "Auto", temperature: float = 1.0) -> List[bytes]:
+        with self._lock:
+            model = self._get_model("VoiceClone")
             
-            outputs = self._process_output(wavs, sr)
-            # Debug: check if outputs are identical
-            if len(outputs) > 1:
-                unique_outputs = len(set(outputs))
-                logger.info(f"Batch generation complete. Unique audios: {unique_outputs}/{len(outputs)}")
-                if unique_outputs == 1:
-                    logger.warning("CRITICAL: All generated audios in batch are identical!")
+            # Resolve file IDs if present
+            from app.services.file_store import file_store
+            
+            def _resolve(item):
+                if isinstance(item, str) and not os.path.exists(item):
+                    resolved_path = file_store.get_path(item)
+                    if resolved_path:
+                        logger.info(f"Resolved file ID {item} to {resolved_path}")
+                        return str(resolved_path)
+                return item
+
+            # Handle bytes as ref_audio (write to temp file)
+            temp_files = []
+            try:
+                # Resolve file IDs in strings or lists
+                if isinstance(ref_audio, list):
+                    ref_audio = [_resolve(a) for a in ref_audio]
+                else:
+                    ref_audio = _resolve(ref_audio)
                     
-            return outputs
-        finally:
-            # Cleanup temp files
-            for path in temp_files:
-                try:
-                    os.remove(path)
-                except:
-                    pass
+                processed_ref_audio = ref_audio
+                if isinstance(ref_audio, bytes):
+                    fd, path = tempfile.mkstemp(suffix=".wav")
+                    with os.fdopen(fd, 'wb') as f:
+                        f.write(ref_audio)
+                    processed_ref_audio = path
+                    temp_files.append(path)
+                elif isinstance(ref_audio, list):
+                    processed_ref_audio = []
+                    for item in ref_audio:
+                        if isinstance(item, bytes):
+                            fd, path = tempfile.mkstemp(suffix=".wav")
+                            with os.fdopen(fd, 'wb') as f:
+                                f.write(item)
+                            processed_ref_audio.append(path)
+                            temp_files.append(path)
+                        else:
+                            processed_ref_audio.append(item)
+
+                # Determine x_vector_only_mode based on ref_text
+                if isinstance(text, list):
+                    # Batch mode
+                    if ref_text is None:
+                        x_vector_only_mode = [True] * len(text)
+                        ref_text = [""] * len(text)
+                    elif isinstance(ref_text, list):
+                        x_vector_only_mode = [t is None or t == "" for t in ref_text]
+                        # Replace None with empty string for the model
+                        ref_text = [t if t is not None else "" for t in ref_text]
+                    else:
+                        # Single ref_text for a batch
+                        x_vector_only_mode = [False] * len(text)
+                else:
+                    # Single mode
+                    x_vector_only_mode = ref_text is None or ref_text == ""
+                    if ref_text is None:
+                        ref_text = ""
+
+                # Ensure all batch inputs have matching lengths for the library
+                if isinstance(text, list):
+                    count = len(text)
+                    if not isinstance(language, list):
+                        language = [language] * count
+                    if not isinstance(processed_ref_audio, list):
+                        processed_ref_audio = [processed_ref_audio] * count
+                    if not isinstance(ref_text, list):
+                        ref_text = [ref_text] * count
+                    if not isinstance(x_vector_only_mode, list):
+                        x_vector_only_mode = [x_vector_only_mode] * count
+
+                logger.info(f"Generating voice clone batch of size {len(text) if isinstance(text, list) else 1}")
+                
+                wavs, sr = model.generate_voice_clone(
+                    text=text,
+                    language=language,
+                    ref_audio=processed_ref_audio,
+                    ref_text=ref_text,
+                    x_vector_only_mode=x_vector_only_mode,
+                    temperature=temperature,
+                    max_new_tokens=settings.TTS_MAX_NEW_TOKENS
+                )
+                
+                outputs = self._process_output(wavs, sr)
+                # Debug: check if outputs are identical
+                if len(outputs) > 1:
+                    unique_outputs = len(set(outputs))
+                    logger.info(f"Batch generation complete. Unique audios: {unique_outputs}/{len(outputs)}")
+                    if unique_outputs == 1:
+                        logger.warning("CRITICAL: All generated audios in batch are identical!")
+                        
+                return outputs
+            finally:
+                # Cleanup temp files
+                for path in temp_files:
+                    try:
+                        os.remove(path)
+                    except:
+                        pass
 
     def _process_output(self, wavs: List[any], sr: int) -> List[bytes]:
         """Convert raw waveforms to WAV bytes."""

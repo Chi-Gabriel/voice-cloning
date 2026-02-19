@@ -8,43 +8,40 @@ The pipeline follows a 5-stage orchestration:
 
 ```mermaid
 graph TD
-    A[Reference Audio] --> B[Resample to 48kHz]
-    B --> C[Noise Removal - DeepFilterNet]
-    C --> D[Qwen-TTS Base Model]
-    D --> E[Resample to 48kHz]
-    E --> F[Noise Removal - DeepFilterNet]
-    F --> G[Clean Output Audio]
+    A[Reference Audio] --> B[Denoise + 16k Norm]
+    B --> C[Qwen-TTS Base Model]
+    C --> D[Denoise + 16k Norm]
+    D --> E[AI Super-Resolution]
+    E --> F[High-Res 48kHz Output]
 ```
 
-1.  **Resample (Stage 1)**: Normalizes input audio to 48kHz using a high-quality cascade (`soxr` -> `scipy` -> `torchaudio`).
-2.  **Noise Removal (Stage 2)**: Removes background noise from the reference using **DeepFilterNet3**.
-3.  **TTS Generation (Stage 3)**: Uses the cleaned reference for superior voice cloning results.
-4.  **Resample (Stage 4)**: Normalizes the generated audio back to 48kHz.
-5.  **Noise Removal (Stage 5)**: Applies a final polish to the generated audio to remove any synthetic artifacts or noise.
+1.  **Stage 1 (Pre)**: Denoises reference audio and normalizes to 16kHz using the **Facebook Denoiser**.
+2.  **Stage 2 (TTS)**: Uses the clean 16kHz reference for voice cloning.
+3.  **Stage 3 (Post)**: 
+    - Applies a final denoising pass to the generated 16kHz output on the GPU.
+    - Performance **AI Super-Resolution** (Stage 4) using **NoVaSR** to upscale to 48kHz for high-fidelity delivery.
 
 ## Key Services
 
-### Resampler Service (`resampler.py`)
-- **HQ Cascade**: Uses `soxr` for top-tier resampling quality.
-- **Parallelism**: Processes batches via `ThreadPoolExecutor` with configurable `max_workers` (default: 3).
-- **Efficiency**: Only resamples if the source rate differs from the target.
+### Denoiser Service (`fb_denoiser.py`)
+- **Facebook Denoiser (DNS48)**: High-performance 16kHz speech enhancement.
+- **Unified Normalization**: Replaces the legacy resampler by internalizing 16kHz conversion.
+- **Batched GPU Processing**: Denoises TTS output batches directly in VRAM.
 
-### Noise Removal Service (`noise_removal.py`)
-- **DeepFilterNet**: State-of-the-art noise suppression.
-- **VRAM Optimized**: Model is lazy-loaded and shared across requests (singleton).
-- **Parallelism**: Concurrent denoising of batch items.
+### Super-Resolution Service (`super_res.py`)
+- **NoVaSR (AI Super-Resolution)**: Ultra-lightweight model that upscales from 16kHz to 48kHz.
+- **Batched GPU Processing**: Upscales TTS outputs directly on the GPU for maximum speed.
 
 ### Orchestrator (`audio_pipeline.py`)
-- **Per-File Parallelism**: Processes CPU-bound pre/post stages (1, 2, 4, 5) concurrently for each file in a batch.
-- **Batched GPU TTS**: Synchronizes items at Stage 3 to maximize GPU utilization via batch inference.
-- **Latency Optimization**: Prevents slow files from blocking faster files at stage boundaries.
-- **Cleanup**: Manages temporary file lifecycle across the parallel chains.
-- **Tuning**: Contains internal flags (`RUN_PRE_PROCESSING`, `RUN_POST_PROCESSING`) to bypass stages for performance testing or custom workflows.
+- **Zero-Copy Flow**: Keeps generated audio as Tensors/Memory-Bytes during the entire post-processing chain (Denoise -> Upsample).
+- **Latency Optimization**: Elimination of disk I/O between post-stages.
+- **Tuning**: Toggle `RUN_PRE_PROCESSING`, `RUN_POST_PROCESSING`, and `RUN_UPSAMPLING` directly in the file.
 
 ## Tuning & Configuration
 The pipeline behavior can be adjusted in `audio_pipeline.py` using these constants:
-- `RUN_PRE_PROCESSING`: Enables/Disables Stage 1 (Resample) and Stage 2 (Denoise) *before* TTS generation.
-- `RUN_POST_PROCESSING`: Enables/Disables Stage 4 (Resample) and Stage 5 (Denoise) *after* TTS generation.
+- `RUN_PRE_PROCESSING`: Enables/Disables Denoise & 16k Normalization of Reference Audio.
+- `RUN_POST_PROCESSING`: Enables/Disables Denoise & 16k Normalization of TTS Output.
+- `RUN_UPSAMPLING`: Enables/Disables 48kHz Super-Resolution (Post-only).
 
 ## API Endpoint
 `POST /api/v1/voice-clone-enhanced`

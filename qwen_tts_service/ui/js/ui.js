@@ -38,12 +38,25 @@ const UI = {
         // Output
         playPauseBtn: document.getElementById('play-pause'),
         timeDisplay: document.getElementById('time-display'),
-        historyList: document.getElementById('history-list')
+        historyList: document.getElementById('history-list'),
+
+        // ASR Elements
+        asrFiles: document.getElementById('asr-files'),
+        asrDropArea: document.getElementById('asr-drop-area'),
+        asrFileList: document.getElementById('asr-file-list'),
+        asrLanguage: document.getElementById('asr-language'),
+        asrTimestamps: document.getElementById('asr-timestamps'),
+        btnTranscribe: document.getElementById('btn-transcribe-now'),
+        btnAddBatchASR: document.getElementById('btn-add-batch-asr'),
+        asrResultContainer: document.getElementById('asr-result-container'),
+        asrResultText: document.getElementById('asr-result-text'),
+        asrPreview: document.getElementById('asr-preview')
     },
 
     wavesurfer: null,
     batchQueue: [],
     currentVCFile: null, // Track selected file for Voice Cloning
+    asrSelectedFiles: [], // Track selected files for ASR
 
     // ISO Languages
     languages: [
@@ -126,6 +139,7 @@ const UI = {
         UI.elements.vdLanguage.innerHTML = options;
         UI.elements.vcLanguage.innerHTML = options;
         UI.elements.cvLanguage.innerHTML = options;
+        UI.elements.asrLanguage.innerHTML = options;
     },
 
     initSliders: () => {
@@ -156,18 +170,18 @@ const UI = {
             Utils.saveToStorage('api_key', key);
         });
 
-        // File Upload
+        // Voice Clone File Upload (drag-and-drop)
         const dropArea = UI.elements.vcDropArea;
         const fileInput = UI.elements.vcFile;
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropArea.addEventListener(eventName, preventDefaults, false);
-        });
 
         function preventDefaults(e) {
             e.preventDefault();
             e.stopPropagation();
         }
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
 
         ['dragenter', 'dragover'].forEach(eventName => {
             dropArea.addEventListener(eventName, () => dropArea.classList.add('is-active'), false);
@@ -179,24 +193,58 @@ const UI = {
 
         dropArea.addEventListener('drop', (e) => {
             const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles(files);
+            handleVCFiles(dt.files);
         });
 
         fileInput.addEventListener('change', (e) => {
-            handleFiles(e.target.files);
+            handleVCFiles(e.target.files);
         });
 
-        function handleFiles(files) {
+        function handleVCFiles(files) {
             if (files.length > 0) {
-                const file = files[0];
-                if (file.type.startsWith('audio/')) {
-                    UI.currentVCFile = file; // Store the file globally for this tab
-                    UI.wavesurfer.load(URL.createObjectURL(file)); // Also load into visualizer for preview if desired
-                    UI.elements.vcPreview.src = URL.createObjectURL(file);
-                    UI.elements.vcPreview.style.display = 'block';
-                    UI.elements.vcDropArea.querySelector('.file-msg').textContent = file.name;
+                UI.currentVCFile = files[0];
+                const preview = UI.elements.vcPreview;
+                preview.src = URL.createObjectURL(files[0]);
+                preview.style.display = 'block';
+                dropArea.querySelector('.file-msg').textContent = files[0].name;
+            }
+        }
+
+        // ASR File Upload (drag-and-drop)
+        const asrDrop = UI.elements.asrDropArea;
+        const asrInput = UI.elements.asrFiles;
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            asrDrop.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            asrDrop.addEventListener(eventName, () => asrDrop.classList.add('is-active'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            asrDrop.addEventListener(eventName, () => asrDrop.classList.remove('is-active'), false);
+        });
+
+        asrDrop.addEventListener('drop', (e) => {
+            handleASRFiles(e.dataTransfer.files);
+        });
+
+        asrInput.addEventListener('change', (e) => {
+            handleASRFiles(e.target.files);
+        });
+
+        function handleASRFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('audio/')) {
+                    UI.asrSelectedFiles.push(files[i]);
                 }
+            }
+            UI.updateASRFileList();
+
+            // Load the first new file into preview if it exists
+            if (UI.asrSelectedFiles.length > 0) {
+                UI.selectASRPreview(0);
             }
         }
 
@@ -215,6 +263,10 @@ const UI = {
         document.getElementById('btn-add-batch-design').addEventListener('click', () => UI.addToBatch('design'));
         document.getElementById('btn-add-batch-clone').addEventListener('click', () => UI.addToBatch('clone'));
         document.getElementById('btn-add-batch-custom').addEventListener('click', () => UI.addToBatch('custom'));
+        document.getElementById('btn-add-batch-asr').addEventListener('click', () => UI.addToBatch('asr'));
+
+        // Transcribe Now Button
+        UI.elements.btnTranscribe.addEventListener('click', () => UI.handleTranscribeNow());
 
         document.getElementById('btn-clear-queue').addEventListener('click', () => {
             UI.batchQueue = [];
@@ -277,6 +329,112 @@ const UI = {
                 UI.addToHistory(mode, url, response.performance, displayText);
             }
 
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    },
+
+    updateASRFileList: () => {
+        const list = UI.elements.asrFileList;
+        const dropMsg = UI.elements.asrDropArea.querySelector('.file-msg');
+
+        if (UI.asrSelectedFiles.length === 0) {
+            list.style.display = 'none';
+            UI.elements.asrPreview.style.display = 'none';
+            dropMsg.textContent = 'or drag and drop multiple files here';
+            return;
+        }
+
+        list.style.display = 'flex';
+        list.innerHTML = '';
+        dropMsg.textContent = `${UI.asrSelectedFiles.length} files selected`;
+
+        UI.asrSelectedFiles.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'queue-item';
+            item.innerHTML = `
+                <div class="q-info" onclick="UI.selectASRPreview(${index})" style="cursor:pointer; flex:1;">
+                    <span class="q-text" style="font-weight:500;">${file.name}</span>
+                    <span class="q-type">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                </div>
+                <div class="q-actions">
+                    <button class="btn-delete" onclick="UI.removeASRFile(${index})" title="Remove">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    },
+
+    selectASRPreview: (index) => {
+        const file = UI.asrSelectedFiles[index];
+        if (file) {
+            const player = UI.elements.asrPreview;
+            player.src = URL.createObjectURL(file);
+            player.style.display = 'block';
+
+            // Highlight active item in list
+            const items = UI.elements.asrFileList.querySelectorAll('.queue-item');
+            items.forEach((item, i) => {
+                if (i === index) item.classList.add('is-processing'); // Highlighting active
+                else item.classList.remove('is-processing');
+            });
+        }
+    },
+
+    removeASRFile: (index) => {
+        UI.asrSelectedFiles.splice(index, 1);
+        UI.updateASRFileList();
+    },
+
+    handleTranscribeNow: async () => {
+        const btn = UI.elements.btnTranscribe;
+        const originalText = btn.textContent;
+        const files = UI.asrSelectedFiles;
+
+        if (files.length === 0) return alert("Please select files first.");
+
+        try {
+            btn.disabled = true;
+            btn.textContent = 'Uploading...';
+            UI.elements.asrResultContainer.style.display = 'none';
+
+            // 1. Upload all files
+            const uploadedItems = [];
+            for (let f of files) {
+                const res = await API.uploadFile(f);
+                uploadedItems.push({
+                    file_id: res.file_id,
+                    custom_id: f.name
+                });
+            }
+
+            // 2. Transcribe
+            btn.textContent = 'Transcribing...';
+            const lang = UI.elements.asrLanguage.value;
+            const timestamps = UI.elements.asrTimestamps.checked;
+
+            const response = await API.transcribeBatch(uploadedItems, lang, timestamps);
+
+            // 3. Display Results
+            let resultText = "";
+            response.items.forEach(item => {
+                resultText += `[${item.custom_id}] (${item.language})\n`;
+                if (item.timestamps) {
+                    item.timestamps.forEach(ts => {
+                        resultText += `[${ts.start_time.toFixed(2)}s - ${ts.end_time.toFixed(2)}s] ${ts.text}\n`;
+                    });
+                } else {
+                    resultText += `${item.text}\n`;
+                }
+                resultText += "\n" + "-".repeat(40) + "\n\n";
+            });
+
+            UI.elements.asrResultText.textContent = resultText;
+            UI.elements.asrResultContainer.style.display = 'block';
+
         } catch (error) {
             alert(error.message);
         } finally {
@@ -316,7 +474,6 @@ const UI = {
                 if (!text) return alert("Please enter text before adding to batch.");
                 if (!file) return alert("Please select a reference audio file first.");
 
-                // Upload file first
                 btn.textContent = 'Uploading...';
                 const uploadRes = await API.uploadFile(file);
                 const file_id = uploadRes.file_id;
@@ -334,11 +491,33 @@ const UI = {
                 if (!speaker) return alert("Speaker ID is required");
 
                 UI.batchQueue.push({ id: Utils.generateId(), mode, text, speaker, lang, instruct, temp });
+            } else if (mode === 'asr') {
+                const files = UI.asrSelectedFiles;
+                if (files.length === 0) return alert("Please select files first.");
+
+                const lang = UI.elements.asrLanguage.value;
+                const timestamps = UI.elements.asrTimestamps.checked;
+
+                btn.textContent = `Uploading ${files.length} files...`;
+
+                for (let f of files) {
+                    const res = await API.uploadFile(f);
+                    UI.batchQueue.push({
+                        id: Utils.generateId(),
+                        mode: 'asr',
+                        text: f.name,
+                        file_id: res.file_id,
+                        lang,
+                        timestamps
+                    });
+                }
+
+                UI.asrSelectedFiles = [];
+                UI.updateASRFileList();
             }
 
             UI.updateBatchUI();
 
-            // Visual feedback
             btn.textContent = 'Added!';
             setTimeout(() => {
                 btn.textContent = originalText;
@@ -350,11 +529,6 @@ const UI = {
             btn.textContent = originalText;
             btn.disabled = false;
         }
-    },
-
-    removeFromBatch: (index) => {
-        UI.batchQueue.splice(index, 1);
-        UI.updateBatchUI();
     },
 
     updateBatchUI: () => {
@@ -391,6 +565,12 @@ const UI = {
         });
     },
 
+    removeFromBatch: (index) => {
+        UI.batchQueue.splice(index, 1);
+        UI.updateBatchUI();
+    },
+
+
     runBatch: async () => {
         if (UI.batchQueue.length === 0) return;
 
@@ -409,9 +589,10 @@ const UI = {
                 if (item.mode === 'clone') {
                     operation = item.enhanced ? 'voice_clone_enhanced' : 'voice_clone';
                 }
+                if (item.mode === 'asr') operation = 'transcribe';
 
                 return {
-                    text: item.text,
+                    text: item.text, // For ASR this is filename (ignored by backend but useful for debugging)
                     operation: operation,
                     ref_audio: item.file_id || null,
                     ref_text: item.refText || null,
@@ -419,12 +600,13 @@ const UI = {
                     speaker: item.speaker || null,
                     language: item.lang || 'auto',
                     temperature: item.temp || 0.3,
+                    return_timestamps: item.timestamps || false,
                     custom_id: item.id // Keep UI ID for tracking
                 };
             });
 
             // 2. Submit to Queue
-            const response = await API.submitBatchToQueue(queueItems, `Web UI Batch ${new Date().toLocaleTimeString()}`);
+            const response = await API.submitBatchToQueue(queueItems, `Web UI Batch ${new Date().toLocaleTimeString()} `);
             const batchId = response.batch_id;
 
             console.log("Batch submitted:", batchId);
@@ -508,6 +690,10 @@ const UI = {
                     const mode = originalItem ? originalItem.mode : 'unknown';
                     const text = originalItem ? originalItem.text : (item.custom_id || "Queued Text");
 
+                    // For ASR, the URL is a JSON file, not audio. We need to handle this differently.
+                    // But for History consistency, we can still add it, but maybe change "Play" button logic?
+                    // For now, let's just add it. The API returns .json for transcribe.
+
                     UI.addToHistory(mode, item.url, 0, text);
                 } else if (item.status === 'error') {
                     console.error(`Item ${item.item_id} failed: ${item.error}`);
@@ -524,6 +710,7 @@ const UI = {
             console.error("Error handling queue completion:", error);
         }
     },
+
     updateTime: () => {
         const current = UI.wavesurfer.getCurrentTime();
         const duration = UI.wavesurfer.getDuration();
@@ -565,8 +752,11 @@ const UI = {
                 </code>
             </div>
             <div class="history-actions">
-                <button onclick="console.log('Playing: ${url}'); UI.wavesurfer.load('${url}'); UI.wavesurfer.play();">Play</button>
-                <a href="${url}" download="generated_${item.id}.wav" style="color:var(--accent); text-decoration:none; font-size:0.9rem; margin-left:8px;">Download</a>
+                ${mode === 'asr'
+                ? `<a href="${url}" target="_blank" style="color:var(--accent); text-decoration:none; font-size:0.9rem;">View JSON</a>`
+                : `<button onclick="console.log('Playing: ${url}'); UI.wavesurfer.load('${url}'); UI.wavesurfer.play();">Play</button>`
+            }
+                <a href="${url}" download="${mode === 'asr' ? 'transcript.json' : 'generated_' + item.id + '.wav'}" style="color:var(--accent); text-decoration:none; font-size:0.9rem; margin-left:8px;">Download</a>
             </div>
         `;
 

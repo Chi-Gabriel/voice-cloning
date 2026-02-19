@@ -4,6 +4,7 @@ This is a production-ready setup for running **Qwen3-TTS** and **Qwen3-ASR** usi
 
 ## Key Features
 
+- **Enhanced 16kHz Pipeline**: Direct 16kHz denoising and normalization using Facebook's DNS48, bypassing legacy 48kHz resampling stages for maximum fidelity and lower latency.
 - **Pre-configured Environment**: Includes Python 3.11, CUDA 12, PyTorch 2.5, and all dependencies.
 - **Voice Cloning Ready**: Full support for voice cloning using **Qwen3-TTS-1.7B-CustomVoice**.
 - **Accurate Transcription**: Integrated **Qwen3-ASR-1.7B** for converting audio to text.

@@ -11,6 +11,7 @@ from app.services.audio_pipeline import audio_pipeline
 from app.services.file_store import file_store
 from app.services.asr_engine import asr_engine
 import json
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -53,13 +54,34 @@ class GPUWorker:
                         groups[op] = []
                     groups[op].append(item)
 
-                # Find the largest group
-                largest_op = max(groups, key=lambda k: len(groups[k]))
+                # Prioritize operation that matches the currently active engine to avoid swapping
+                from app.services.model_manager import model_manager
+                active = model_manager.active_engine
+                
+                tts_ops = {"voice_design", "custom_voice", "voice_clone", "voice_clone_enhanced"}
+                asr_ops = {"transcribe"}
+                
+                preferred_op = None
+                if active == "tts":
+                    # Pick largest TTS group available
+                    candidate_ops = [op for op in groups if op in tts_ops]
+                    if candidate_ops:
+                        preferred_op = max(candidate_ops, key=lambda k: len(groups[k]))
+                elif active == "asr":
+                    # Pick largest ASR group (currently only transcribe)
+                    candidate_ops = [op for op in groups if op in asr_ops]
+                    if candidate_ops:
+                        preferred_op = max(candidate_ops, key=lambda k: len(groups[k]))
+
+                # 3. Find the best group to process
+                largest_op = preferred_op or max(groups, key=lambda k: len(groups[k]))
                 items_to_process = groups.pop(largest_op)
                 
                 # Push deferred groups back to Redis (front of queue)
-                for op, deferred_items in groups.items():
-                    queue_service.push_to_front(deferred_items)
+                if groups:
+                    logger.info(f"GPU Worker: Deferring {sum(len(v) for v in groups.values())} mixed-type items to avoid model swap")
+                    for op, deferred_items in groups.items():
+                        queue_service.push_to_front(deferred_items)
 
                 # 3. Process the largest group
                 logger.info(f"GPU Worker: Processing {len(items_to_process)} items for operation '{largest_op}'")
@@ -117,11 +139,37 @@ class GPUWorker:
                 )
 
             elif operation == "voice_clone_enhanced":
-                ref_audios = [item.get("ref_audio") for item in items]
+                valid_items = []
+                resolved_refs = []
+                for item in items:
+                    ref = item.get("ref_audio")
+                    # Try to resolve or check absolute path
+                    resolved = None
+                    if isinstance(ref, str):
+                        if os.path.isabs(ref) and os.path.exists(ref):
+                            resolved = ref
+                        else:
+                            resolved = file_store.get_path(ref)
+                    
+                    if resolved:
+                        valid_items.append(item)
+                        resolved_refs.append(str(resolved))
+                    else:
+                        logger.error(f"GPU Worker: Missing reference audio for item {item['item_id']}: {ref}")
+                        queue_service.mark_error(item["item_id"], f"Reference audio not found: {ref}")
+
+                if not valid_items:
+                    return
+                
+                # Update items and texts for the valid subset
+                items = valid_items
+                texts = [item.get("text") for item in items]
                 ref_texts = [item.get("ref_text") for item in items]
+                languages = [LANGUAGE_MAP.get(item.get("language", "Auto"), "Auto") for item in items]
+
                 results = audio_pipeline.process_voice_clone_enhanced(
                     text=texts,
-                    ref_audio=ref_audios,
+                    ref_audio=resolved_refs,
                     ref_text=ref_texts,
                     language=languages,
                     temperature=temperature

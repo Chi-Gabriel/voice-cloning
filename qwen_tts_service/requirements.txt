@@ -3,19 +3,19 @@ uvicorn
 pydantic
 pydantic-settings
 python-multipart
-# Qwen-TTS specific
-# Version 0.1.1 is current in repo
 torch
 torchaudio
 soundfile
 numpy
 scipy
 librosa
-deepfilternet
+denoiser
+julius
+novasr @ git+https://github.com/ysharma3501/NovaSR.git
+einops
 soxr
 qwen-omni-utils
 nagisa
 soynlp
 pytz
-librosa
 redis

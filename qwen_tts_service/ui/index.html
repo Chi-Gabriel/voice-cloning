@@ -54,6 +54,16 @@
                     </svg>
                     Custom Voice
                 </button>
+                <button class="nav-item" data-tab="asr-view">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                        <polyline points="22 2 15 22 11 13 2 9 22 2"></polyline>
+                    </svg>
+                    Transcription
+                </button>
             </div>
 
             <div class="api-key-section">
@@ -238,6 +248,63 @@
                         <button class="btn-primary col" id="btn-generate-custom">
                             Generate
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Audio Transcription View -->
+            <div id="asr-view" class="tab-content">
+                <header>
+                    <h1>Audio Transcription</h1>
+                    <p>Transcribe audio files to text using Qwen3-ASR.</p>
+                </header>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label>Upload Audio Files</label>
+                        <div class="file-drop-area" id="asr-drop-area" style="min-height: 120px;">
+                            <span class="fake-btn">Choose files</span>
+                            <span class="file-msg">or drag and drop multiple files here</span>
+                            <input class="file-input" type="file" id="asr-files" accept="audio/*" multiple>
+                        </div>
+                        <audio id="asr-preview" controls style="display:none; width: 100%; margin-top: 15px;"></audio>
+                    </div>
+
+                    <div id="asr-file-list" class="file-list-container" style="display: none;">
+                        <!-- Selected files will be listed here -->
+                    </div>
+
+                    <div class="row" style="margin-top: 24px;">
+                        <div class="form-group col">
+                            <label>Language</label>
+                            <select id="asr-language"></select>
+                        </div>
+                        <div class="form-group col" style="display: flex; align-items: center;">
+                            <label class="checkbox-container"
+                                style="margin-top: 24px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="asr-timestamps">
+                                <span class="checkmark"></span>
+                                <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">Include
+                                    Timestamps</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button class="btn-secondary col" id="btn-add-batch-asr">
+                            + Add to Batch
+                        </button>
+                        <button class="btn-primary col" id="btn-transcribe-now">
+                            Transcribe Now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Transcription Result Area -->
+                <div id="asr-result-container" class="card" style="display: none; margin-top: 20px;">
+                    <h3>Transcription Result</h3>
+                    <div id="asr-result-text" class="code-block"
+                        style="white-space: pre-wrap; font-family: monospace; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto;">
                     </div>
                 </div>
             </div>

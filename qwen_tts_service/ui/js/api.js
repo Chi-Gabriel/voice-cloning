@@ -100,6 +100,24 @@ const API = {
         return API.request(endpoint, 'POST', formData, true);
     },
 
+    // ASR Endpoints
+    transcribeBatch: (items, language, returnTimestamps = false) => {
+        // items is array of { file_id: "...", custom_id: "..." }
+        return API.request('/transcribe', 'POST', {
+            files: items,
+            language: language,
+            return_timestamps: returnTimestamps
+        });
+    },
+
+    transcribeFile: (file, language, returnTimestamps = false) => {
+        const formData = new FormData();
+        formData.append('audio', file);
+        formData.append('language', language);
+        formData.append('return_timestamps', returnTimestamps);
+        return API.request('/transcribe/file', 'POST', formData, true);
+    },
+
     // Queue Endpoints
     submitBatchToQueue: (items, label = null) => {
         return API.request('/queue/submit', 'POST', {
