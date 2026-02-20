@@ -133,8 +133,30 @@ UI.setupEventListeners = () => {
     UI.elements.btnAddBatchDiarize.addEventListener('click', () => UI.addToBatch('diarize'));
 
     UI.elements.btnTranscribe.addEventListener('click', () => UI.handleTranscribeNow());
-    UI.elements.btnDiarizeNow.addEventListener('click', () => UI.handleDiarizeNow());
+    UI.elements.btnDiarizeNow.onclick = UI.handleDiarizeNow;
 
+    // Smart Transcript Events
+    const analysisDrop = UI.elements.analysisDropArea;
+    const analysisInput = UI.elements.analysisFiles;
+
+    analysisDrop.addEventListener('dragover', (e) => { e.preventDefault(); analysisDrop.classList.add('is-active'); });
+    analysisDrop.addEventListener('dragleave', () => analysisDrop.classList.remove('is-active'));
+    analysisDrop.addEventListener('drop', (e) => { e.preventDefault(); analysisDrop.classList.remove('is-active'); handleAnalysisFiles(e.dataTransfer.files); });
+    analysisInput.addEventListener('change', (e) => handleAnalysisFiles(e.target.files));
+
+    function handleAnalysisFiles(files) {
+        if (files.length > 0) {
+            UI.currentAnalysisFile = files[0];
+            UI.elements.analysisPreview.src = URL.createObjectURL(files[0]);
+            UI.elements.analysisPreview.style.display = 'block';
+            analysisDrop.querySelector('.file-msg').textContent = files[0].name;
+        }
+    }
+
+    UI.elements.btnRunAnalysis.onclick = UI.handleRunAnalysis;
+
+    // Batch Update
+    UI.elements.btnUpdateQueue.onclick = UI.updateQueue;
     const btnClearQueue = document.getElementById('btn-clear-queue');
     if (btnClearQueue) {
         btnClearQueue.addEventListener('click', () => {

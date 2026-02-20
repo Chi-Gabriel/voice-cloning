@@ -55,11 +55,13 @@ UI.initWaveSurfer = () => {
 };
 
 UI.initLanguages = () => {
-    const options = UI.languages.map(l => `<option value="${l.code}">${l.name}</option>`).join('');
-    UI.elements.vdLanguage.innerHTML = options;
-    UI.elements.vcLanguage.innerHTML = options;
-    UI.elements.cvLanguage.innerHTML = options;
-    UI.elements.asrLanguage.innerHTML = options;
+    const options = UI.languages.map(lang => `<option value="${lang.code}">${lang.name}</option>`).join('');
+    if (UI.elements.vdLanguage) UI.elements.vdLanguage.innerHTML = options;
+    if (UI.elements.vcLanguage) UI.elements.vcLanguage.innerHTML = options;
+    if (UI.elements.cvLanguage) UI.elements.cvLanguage.innerHTML = options;
+    if (UI.elements.asrLanguage) UI.elements.asrLanguage.innerHTML = options;
+    if (UI.elements.analysisLanguage) UI.elements.analysisLanguage.innerHTML = options;
+    if (UI.elements.diarizeLanguage) UI.elements.diarizeLanguage.innerHTML = options;
 };
 
 UI.initSliders = () => {

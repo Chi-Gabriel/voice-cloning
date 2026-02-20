@@ -64,6 +64,16 @@
                     </svg>
                     Transcription
                 </button>
+                <button class="nav-item" data-tab="analysis-view">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <line x1="10" y1="9" x2="8" y2="9"></line>
+                    </svg>
+                    Smart Transcript
+                </button>
                 <button class="nav-item" data-tab="diarization-view">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M17 3v18"></path>
@@ -329,6 +339,55 @@
                 </div>
             </div>
 
+            <!-- Smart Transcript View -->
+            <div id="analysis-view" class="tab-content">
+                <header>
+                    <h1>Smart Transcript</h1>
+                    <p>Combine Transcription and Diarization for punctuated, speaker-attributed results.</p>
+                </header>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label>Upload Audio File</label>
+                        <div class="file-drop-area" id="analysis-drop-area" style="min-height: 120px;">
+                            <span class="fake-btn">Choose file</span>
+                            <span class="file-msg">or drag and drop here</span>
+                            <input class="file-input" type="file" id="analysis-files" multiple
+                                accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.aac">
+                        </div>
+                        <audio id="analysis-preview" controls
+                            style="display:none; width: 100%; margin-top: 15px;"></audio>
+                    </div>
+
+                    <div class="row" style="margin-top: 24px;">
+                        <div class="form-group col">
+                            <label>Language</label>
+                            <select id="analysis-language"></select>
+                        </div>
+                        <div class="form-group col">
+                            <!-- spacer -->
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button class="btn-primary col" id="btn-run-analysis" style="width: 100%;">
+                            Generate Smart Transcript
+                        </button>
+                    </div>
+
+                    <!-- Analysis progress/result -->
+                    <div id="analysis-result-container" class="card"
+                        style="display: none; margin-top: 20px; border-top: 2px solid var(--accent);">
+                        <div id="analysis-status" style="margin-bottom: 20px; font-weight: 500; color: var(--accent);">
+                        </div>
+
+                        <div id="analysis-result-chat" style="display: flex; flex-direction: column; gap: 20px;">
+                            <!-- Chat bubbles will go here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Speaker Diarization View -->
             <div id="diarization-view" class="tab-content">
                 <header>
@@ -361,6 +420,10 @@
                         <div class="form-group col-small">
                             <label title="Maximum number of speakers (optional)">Max Speakers</label>
                             <input type="number" id="diarize-max-speakers" placeholder="Auto" min="1" max="10">
+                        </div>
+                        <div class="form-group col">
+                            <label>Language Hint (Optional)</label>
+                            <select id="diarize-language"></select>
                         </div>
                     </div>
 
@@ -425,9 +488,10 @@
     <script src="js/ui-init.js?v=2.2"></script>
     <script src="js/ui-events.js?v=2.2"></script>
     <script src="js/ui-tts.js?v=2.2"></script>
-    <script src="js/ui-asr.js?v=2.2"></script>
-    <script src="js/ui-diarization.js?v=2.2"></script>
-    <script src="js/ui-batch.js?v=2.2"></script>
+    <script src="js/ui-asr.js"></script>
+    <script src="js/ui-diarization.js"></script>
+    <script src="js/ui-analysis.js"></script>
+    <script src="js/ui-batch.js"></script>
     <script src="js/ui-history.js?v=2.2"></script>
 
     <script src="js/app.js?v=2.2"></script>

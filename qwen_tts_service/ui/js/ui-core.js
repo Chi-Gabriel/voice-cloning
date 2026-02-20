@@ -34,8 +34,21 @@ const UI = {
         cvTempVal: document.getElementById('cv-temp-value'),
         btnCustom: document.getElementById('btn-generate-custom'),
 
-        // Output
+        // Analysis
+        analysisDropArea: document.getElementById('analysis-drop-area'),
+        analysisFiles: document.getElementById('analysis-files'),
+        analysisPreview: document.getElementById('analysis-preview'),
+        analysisLanguage: document.getElementById('analysis-language'),
+        btnRunAnalysis: document.getElementById('btn-run-analysis'),
+        analysisResultContainer: document.getElementById('analysis-result-container'),
+        analysisStatus: document.getElementById('analysis-status'),
+        analysisResultChat: document.getElementById('analysis-result-chat'),
+
+        // Output Control
         playPauseBtn: document.getElementById('play-pause'),
+
+        // Batch
+        btnUpdateQueue: document.getElementById('btn-update-queue'),
         timeDisplay: document.getElementById('time-display'),
         historyList: document.getElementById('history-list'),
 
@@ -61,6 +74,7 @@ const UI = {
         diarizeNumSpeakers: document.getElementById('diarize-num-speakers'),
         diarizeMinSpeakers: document.getElementById('diarize-min-speakers'),
         diarizeMaxSpeakers: document.getElementById('diarize-max-speakers'),
+        diarizeLanguage: document.getElementById('diarize-language'),
         btnAddBatchDiarize: document.getElementById('btn-add-batch-diarize'),
         btnDiarizeNow: document.getElementById('btn-diarize-now'),
         diarizeResultContainer: document.getElementById('diarization-result-container'),
@@ -76,6 +90,7 @@ const UI = {
     currentVCFile: null, // Track selected file for Voice Cloning
     currentASRFile: null, // Track selected file for ASR
     currentDiarizeFile: null, // Track selected file for Diarization
+    currentAnalysisFile: null,
 
     // ISO Languages
     languages: [
