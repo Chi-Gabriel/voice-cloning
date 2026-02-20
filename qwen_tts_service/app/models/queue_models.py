@@ -16,7 +16,7 @@ class QueueItemRequest(BaseModel):
     min_speakers: Optional[int] = None
     max_speakers: Optional[int] = None
     custom_id: Optional[str] = None       # user-defined tracking ID
-    custom_id: Optional[str] = None       # user-defined tracking ID
+    return_timestamps: bool = False      # Whether to return word-level timestamps for ASR
 
 class QueueBatchSubmitRequest(BaseModel):
     items: List[QueueItemRequest]

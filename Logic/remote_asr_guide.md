@@ -45,6 +45,7 @@ Once you have your `file_id`s, group them into a batch. The GPU worker handles u
       "operation": "transcribe",
       "ref_audio": "file_id_1",
       "language": "auto",
+      "return_timestamps": true,
       "custom_id": "chunk_001",
       "text": "" 
     },
@@ -149,11 +150,16 @@ The `url` in the result points to a JSON file (not audio). Fetch it to get the t
   "text": "The transcribed text for this chunk.",
   "language": "English",
   "timestamps": [
-    {"start": 0.0, "end": 1.5, "text": "The transcribed"},
-    {"start": 1.5, "end": 3.0, "text": "text for this chunk."}
+    {"start": 0.0, "end": 0.25, "text": "The"},
+    {"start": 0.25, "end": 0.8, "text": "transcribed"},
+    {"start": 0.8, "end": 1.1, "text": "text"},
+    {"start": 1.1, "end": 1.3, "text": "for"},
+    {"start": 1.3, "end": 1.4, "text": "this"},
+    {"start": 1.4, "end": 1.8, "text": "chunk."}
   ]
 }
 ```
+*Note: Timestamps are only present if `return_timestamps: true` was sent in the queue payload or batch request.*
 
 ---
 
