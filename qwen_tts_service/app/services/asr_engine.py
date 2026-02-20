@@ -17,7 +17,7 @@ ASR_MODEL_ID = "Qwen/Qwen3-ASR-1.7B"
 ASR_ALIGNER_ID = "Qwen/Qwen3-ForcedAligner-0.6B"
 ASR_DTYPE = torch.bfloat16
 ASR_ATTN_IMPL = "flash_attention_2"
-ASR_MAX_NEW_TOKENS = 256
+ASR_MAX_NEW_TOKENS = 4096
 DENOISE_ASR_INPUT = True
 # -------------------
 
