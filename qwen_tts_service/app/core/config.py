@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     ENABLE_ASR: bool = True
     ASR_MAX_BATCH_SIZE: int = 8 # Safe default for batching
 
+    # Diarization Configuration
+    ENABLE_DIARIZATION: bool = True
+    DIARIZATION_MODEL: str = "pyannote/speaker-diarization-3.1"
+    DIARIZATION_MAX_BATCH_SIZE: int = 4
+    HF_TOKEN: Optional[str] = None
+
     class Config:
         env_file = ".env"
 

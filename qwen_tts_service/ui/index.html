@@ -64,6 +64,16 @@
                     </svg>
                     Transcription
                 </button>
+                <button class="nav-item" data-tab="diarization-view">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 3v18"></path>
+                        <path d="M7 3v18"></path>
+                        <path d="M12 8v8"></path>
+                        <path d="M22 10v4"></path>
+                        <path d="M2 10v4"></path>
+                    </svg>
+                    Speaker Diarization
+                </button>
             </div>
 
             <div class="api-key-section">
@@ -147,7 +157,8 @@
                         <div class="file-drop-area" id="vc-drop-area">
                             <span class="fake-btn">Choose file</span>
                             <span class="file-msg">or drag and drop here</span>
-                            <input class="file-input" type="file" id="vc-file" accept="audio/*">
+                            <input class="file-input" type="file" id="vc-file"
+                                accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.aac">
                         </div>
                         <audio id="vc-preview" controls style="display:none; width: 100%; margin-top: 15px;"></audio>
                     </div>
@@ -261,17 +272,14 @@
 
                 <div class="card">
                     <div class="form-group">
-                        <label>Upload Audio Files</label>
+                        <label>Upload Audio File</label>
                         <div class="file-drop-area" id="asr-drop-area" style="min-height: 120px;">
-                            <span class="fake-btn">Choose files</span>
-                            <span class="file-msg">or drag and drop multiple files here</span>
-                            <input class="file-input" type="file" id="asr-files" accept="audio/*" multiple>
+                            <span class="fake-btn">Choose file</span>
+                            <span class="file-msg">or drag and drop here</span>
+                            <input class="file-input" type="file" id="asr-files"
+                                accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.aac">
                         </div>
                         <audio id="asr-preview" controls style="display:none; width: 100%; margin-top: 15px;"></audio>
-                    </div>
-
-                    <div id="asr-file-list" class="file-list-container" style="display: none;">
-                        <!-- Selected files will be listed here -->
                     </div>
 
                     <div class="row" style="margin-top: 24px;">
@@ -298,13 +306,89 @@
                             Transcribe Now
                         </button>
                     </div>
+
+                    <!-- Transcription Result Area -->
+                    <div id="asr-result-container" class="card" style="display: none; margin-top: 20px;">
+                        <h3>Transcription Result</h3>
+
+                        <!-- ASR Timeline (dynamic) -->
+                        <div id="asr-timeline-container" class="diarize-pipe-wrapper"
+                            style="display: none; height: auto; margin-top: 15px;">
+                            <div id="asr-scrubber" class="diarize-scrubber"></div>
+                        </div>
+
+                        <!-- Active Segment Text -->
+                        <div id="asr-active-segment" class="card"
+                            style="display: none; background: rgba(59, 130, 246, 0.1); border-color: var(--accent); margin: 15px 0; padding: 15px; text-align: center; font-size: 1.2rem; font-weight: 600;">
+                        </div>
+
+                        <div id="asr-result-text" class="code-block"
+                            style="white-space: pre-wrap; font-family: monospace; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speaker Diarization View -->
+            <div id="diarization-view" class="tab-content">
+                <header>
+                    <h1>Speaker Diarization</h1>
+                    <p>Detect and separate multiple voices in an audio file.</p>
+                </header>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label>Upload Audio File</label>
+                        <div class="file-drop-area" id="diarize-drop-area" style="min-height: 120px;">
+                            <span class="fake-btn">Choose file</span>
+                            <span class="file-msg">or drag and drop here</span>
+                            <input class="file-input" type="file" id="diarize-file"
+                                accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.aac">
+                        </div>
+                        <audio id="diarize-preview" controls
+                            style="display:none; width: 100%; margin-top: 15px;"></audio>
+                    </div>
+
+                    <div class="row" style="margin-top: 24px;">
+                        <div class="form-group col-small">
+                            <label title="Exact number of speakers (optional)">Num Speakers</label>
+                            <input type="number" id="diarize-num-speakers" placeholder="Auto" min="1" max="10">
+                        </div>
+                        <div class="form-group col-small">
+                            <label title="Minimum number of speakers (optional)">Min Speakers</label>
+                            <input type="number" id="diarize-min-speakers" placeholder="Auto" min="1" max="10">
+                        </div>
+                        <div class="form-group col-small">
+                            <label title="Maximum number of speakers (optional)">Max Speakers</label>
+                            <input type="number" id="diarize-max-speakers" placeholder="Auto" min="1" max="10">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <button class="btn-secondary col" id="btn-add-batch-diarize">
+                            + Add to Batch
+                        </button>
+                        <button class="btn-primary col" id="btn-diarize-now">
+                            Diarize Now
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Transcription Result Area -->
-                <div id="asr-result-container" class="card" style="display: none; margin-top: 20px;">
-                    <h3>Transcription Result</h3>
-                    <div id="asr-result-text" class="code-block"
-                        style="white-space: pre-wrap; font-family: monospace; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto;">
+                <!-- Diarization Result Area (The Segmented Pipe) -->
+                <div id="diarization-result-container" class="diarize-pipe-container" style="display: none;">
+                    <h3>Diarization Timeline</h3>
+                    <div class="diarize-metrics">
+                        <span id="diarize-total-speakers">Found: 0 Speakers</span>
+                        <span id="diarize-time-metric">Process Time: 0.0s</span>
+                    </div>
+
+                    <div class="diarize-pipe-wrapper" id="diarize-pipe-wrapper">
+                        <!-- Segments will be injected here via JS -->
+                        <div class="diarize-scrubber" id="diarize-scrubber"></div>
+                    </div>
+
+                    <div class="speaker-legend" id="diarize-speaker-legend">
+                        <!-- Legend badges injected here -->
                     </div>
                 </div>
             </div>
@@ -335,8 +419,18 @@
     <!-- Scripts -->
     <script src="js/utils.js?v=2.1"></script>
     <script src="js/api.js?v=2.1"></script>
-    <script src="js/ui.js?v=2.1"></script>
-    <script src="js/app.js?v=2.1"></script>
+
+    <!-- UI Modules -->
+    <script src="js/ui-core.js?v=2.2"></script>
+    <script src="js/ui-init.js?v=2.2"></script>
+    <script src="js/ui-events.js?v=2.2"></script>
+    <script src="js/ui-tts.js?v=2.2"></script>
+    <script src="js/ui-asr.js?v=2.2"></script>
+    <script src="js/ui-diarization.js?v=2.2"></script>
+    <script src="js/ui-batch.js?v=2.2"></script>
+    <script src="js/ui-history.js?v=2.2"></script>
+
+    <script src="js/app.js?v=2.2"></script>
 </body>
 
 </html>

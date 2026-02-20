@@ -40,7 +40,13 @@ const API = {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.detail || 'API Request Failed');
+                let msg = 'API Request Failed';
+                if (data.detail) {
+                    msg = typeof data.detail === 'string'
+                        ? data.detail
+                        : JSON.stringify(data.detail, null, 2);
+                }
+                throw new Error(msg);
             }
 
             return data;
@@ -116,6 +122,27 @@ const API = {
         formData.append('language', language);
         formData.append('return_timestamps', returnTimestamps);
         return API.request('/transcribe/file', 'POST', formData, true);
+    },
+
+    // Diarization Endpoints
+    diarizeBatch: (items, numSpeakers = null, minSpeakers = null, maxSpeakers = null) => {
+        // items is array of { file_id: "...", custom_id: "..." }
+        const payload = { files: items };
+        // We assume batch params apply to all if provided, but our backend handles per-file
+        // In this simple UI, we'll apply them individually to each item.
+        if (numSpeakers) items.forEach(i => i.num_speakers = numSpeakers);
+        if (minSpeakers) items.forEach(i => i.min_speakers = minSpeakers);
+        if (maxSpeakers) items.forEach(i => i.max_speakers = maxSpeakers);
+        return API.request('/diarize', 'POST', payload);
+    },
+
+    diarizeFile: (file, numSpeakers = null, minSpeakers = null, maxSpeakers = null) => {
+        const formData = new FormData();
+        formData.append('audio', file);
+        if (numSpeakers) formData.append('num_speakers', numSpeakers);
+        if (minSpeakers) formData.append('min_speakers', minSpeakers);
+        if (maxSpeakers) formData.append('max_speakers', maxSpeakers);
+        return API.request('/diarize/file', 'POST', formData, true);
     },
 
     // Queue Endpoints

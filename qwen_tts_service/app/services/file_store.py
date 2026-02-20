@@ -24,7 +24,7 @@ class FileStore:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         
         # File expiry in seconds (30 minutes)
-        self.expiry_seconds = 30 * 60
+        self.expiry_seconds = 20 * 60
         
         # Start background cleanup thread
         self._stop_event = threading.Event()

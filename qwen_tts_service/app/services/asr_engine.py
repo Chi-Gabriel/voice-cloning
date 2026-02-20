@@ -2,18 +2,23 @@ import torch
 import logging
 import gc
 import os
+import time
 import threading
+import soundfile as sf
+from pathlib import Path
 from typing import List, Union, Optional
 from qwen_asr import Qwen3ASRModel
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Constants for ASR Engine
+# --- ASR Tuning ---
 ASR_MODEL_ID = "Qwen/Qwen3-ASR-1.7B"
 ASR_DTYPE = torch.bfloat16
 ASR_ATTN_IMPL = "flash_attention_2"
 ASR_MAX_NEW_TOKENS = 256
+DENOISE_ASR_INPUT = True
+# -------------------
 
 class ASREngine:
     _instance = None
@@ -29,7 +34,6 @@ class ASREngine:
         from app.services.model_manager import model_manager
         model_manager.register_engine("asr", self)
         
-        # Robust device detection
         requested_device = settings.DEVICE
         has_cuda = torch.cuda.is_available() and torch.cuda.device_count() > 0
         
@@ -40,9 +44,10 @@ class ASREngine:
             self.device = requested_device
             
         self.model = None
+        self._temp_dir = Path("/tmp/asr_denoised")
+        self._temp_dir.mkdir(parents=True, exist_ok=True)
 
     def unload(self):
-        """Unload the ASR model to free VRAM."""
         if self.model is not None:
             logger.info("Unloading ASR model to free VRAM...")
             del self.model
@@ -57,11 +62,9 @@ class ASREngine:
             from app.services.model_manager import model_manager
             model_manager.acquire("asr")
             
-            # Check if model type is enabled
             if not settings.ENABLE_ASR:
                 raise RuntimeError("ASR is disabled in configuration.")
                 
-            # Check for local path (mapped from storage/models/Qwen3-ASR)
             repo_name = ASR_MODEL_ID.split("/")[-1]
             model_source = os.path.join(settings.ASR_MODEL_ROOT, repo_name)
             
@@ -80,19 +83,42 @@ class ASREngine:
             )
             logger.info("ASR model loaded successfully.")
 
+    def _denoise_inputs(self, audio_paths: List[str]) -> List[str]:
+        from app.services.fb_denoiser import fb_denoiser
+
+        t0 = time.perf_counter()
+        logger.info(f"ASR Pre-processing: Denoising {len(audio_paths)} inputs on GPU")
+
+        wav_tensors = []
+        sample_rates = []
+        for path in audio_paths:
+            data, sr = sf.read(path)
+            tensor = torch.from_numpy(data[None, :]).float() if data.ndim == 1 else torch.from_numpy(data.T).float().mean(dim=0, keepdim=True)
+            wav_tensors.append(tensor)
+            sample_rates.append(sr)
+
+        clean_tensors = fb_denoiser.process_batch_tensors(wav_tensors, sample_rates[0])
+
+        clean_paths = []
+        for i, tensor in enumerate(clean_tensors):
+            out_path = str(self._temp_dir / f"asr_clean_{os.getpid()}_{int(time.time())}_{i}.wav")
+            sf.write(out_path, tensor.squeeze(0).numpy(), 16000)
+            clean_paths.append(out_path)
+
+        logger.info(f"ASR Pre-processing: Denoised {len(audio_paths)} files in {time.perf_counter() - t0:.2f}s")
+        return clean_paths
+
     def transcribe(self, audio: Union[str, List[str]], language: Optional[Union[str, List[str]]] = None, return_timestamps: bool = False) -> List[any]:
-        """
-        Transcribe audio files using GPU batch inference.
-        Returns a list of result objects.
-        """
         with self._lock:
             self._ensure_model_loaded()
             
-            # Ensure audio is a list for consistent batch processing
             if isinstance(audio, str):
                 audio = [audio]
                 if language and isinstance(language, str):
                     language = [language]
+
+            if DENOISE_ASR_INPUT:
+                audio = self._denoise_inputs(audio)
 
             logger.info(f"ASR Engine: Transcribing batch of {len(audio)} items")
             results = self.model.transcribe(
@@ -100,6 +126,14 @@ class ASREngine:
                 language=language,
                 return_time_stamps=return_timestamps
             )
+
+            if DENOISE_ASR_INPUT:
+                for p in audio:
+                    try:
+                        os.remove(p)
+                    except OSError:
+                        pass
+
             return results
 
 asr_engine = ASREngine()

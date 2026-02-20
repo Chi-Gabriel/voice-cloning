@@ -19,3 +19,4 @@ nagisa
 soynlp
 pytz
 redis
+pyannote.audio

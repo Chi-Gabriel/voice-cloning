@@ -12,6 +12,39 @@ from app.core.security import get_api_key
 
 router = APIRouter()
 
+ASR_LANGUAGE_MAP = {
+    ASRLanguageEnum.ZH: "Chinese",
+    ASRLanguageEnum.EN: "English",
+    ASRLanguageEnum.CANTONESE: "Cantonese",
+    ASRLanguageEnum.ARABIC: "Arabic",
+    ASRLanguageEnum.GERMAN: "German",
+    ASRLanguageEnum.FRENCH: "French",
+    ASRLanguageEnum.SPANISH: "Spanish",
+    ASRLanguageEnum.PORTUGUESE: "Portuguese",
+    ASRLanguageEnum.INDONESIAN: "Indonesian",
+    ASRLanguageEnum.ITALIAN: "Italian",
+    ASRLanguageEnum.KOREAN: "Korean",
+    ASRLanguageEnum.RUSSIAN: "Russian",
+    ASRLanguageEnum.THAI: "Thai",
+    ASRLanguageEnum.VIETNAMESE: "Vietnamese",
+    ASRLanguageEnum.JAPANESE: "Japanese",
+    ASRLanguageEnum.TURKISH: "Turkish",
+    ASRLanguageEnum.HINDI: "Hindi",
+    ASRLanguageEnum.MALAY: "Malay",
+    ASRLanguageEnum.DUTCH: "Dutch",
+    ASRLanguageEnum.SWEDISH: "Swedish",
+    ASRLanguageEnum.DANISH: "Danish",
+    ASRLanguageEnum.FINNISH: "Finnish",
+    ASRLanguageEnum.POLISH: "Polish",
+    ASRLanguageEnum.CZECH: "Czech",
+    ASRLanguageEnum.FILIPINO: "Filipino",
+    ASRLanguageEnum.PERSIAN: "Persian",
+    ASRLanguageEnum.GREEK: "Greek",
+    ASRLanguageEnum.HUNGARIAN: "Hungarian",
+    ASRLanguageEnum.MACEDONIAN: "Macedonian",
+    ASRLanguageEnum.ROMANIAN: "Romanian"
+}
+
 def _map_results(results, custom_ids=None, file_ids=None) -> List[ASRTranscriptItem]:
     items = []
     for i, res in enumerate(results):
@@ -62,7 +95,7 @@ async def transcribe_batch(request: ASRBatchRequest):
             custom_ids.append(item.custom_id)
             
         # Transcribe
-        lang = None if request.language == ASRLanguageEnum.AUTO else request.language.value
+        lang = ASR_LANGUAGE_MAP.get(request.language) if request.language != ASRLanguageEnum.AUTO else None
         results = asr_engine.transcribe(
             audio=file_paths,
             language=lang,
@@ -98,7 +131,7 @@ async def transcribe_file(
         path = file_store.get_path(file_id)
         
         # Transcribe
-        lang = None if language == ASRLanguageEnum.AUTO else language.value
+        lang = ASR_LANGUAGE_MAP.get(language) if language != ASRLanguageEnum.AUTO else None
         results = asr_engine.transcribe(
             audio=str(path),
             language=lang,

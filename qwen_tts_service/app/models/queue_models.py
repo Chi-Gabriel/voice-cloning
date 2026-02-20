@@ -4,7 +4,7 @@ from .requests import LanguageEnum
 
 class QueueItemRequest(BaseModel):
     text: str
-    operation: Literal["voice_design", "voice_clone", "voice_clone_enhanced", "custom_voice", "transcribe"]
+    operation: Literal["voice_design", "voice_clone", "voice_clone_enhanced", "custom_voice", "transcribe", "diarize"]
     # Operation-specific fields
     ref_audio: Optional[str] = None       # file_id or path
     ref_text: Optional[str] = None
@@ -12,6 +12,10 @@ class QueueItemRequest(BaseModel):
     speaker: Optional[str] = None
     language: LanguageEnum = LanguageEnum.AUTO
     temperature: float = 1.0
+    num_speakers: Optional[int] = None
+    min_speakers: Optional[int] = None
+    max_speakers: Optional[int] = None
+    custom_id: Optional[str] = None       # user-defined tracking ID
     custom_id: Optional[str] = None       # user-defined tracking ID
 
 class QueueBatchSubmitRequest(BaseModel):

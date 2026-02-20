@@ -20,3 +20,10 @@ This feature integrates Automatic Speech Recognition (ASR) into the Qwen-TTS Stu
 ## Design Decisions
 - **Native Player**: Replaced custom WaveSurfer-based preview with a native browser `<audio>` element for maximum compatibility and consistency with the Voice Clone tab, as per user feedback.
 - **Batching**: Synchronized ASR tasks with the existing TTS batch queue to allow users to process both types of tasks in a single run.
+
+## Input Denoising
+Controlled by the `DENOISE_ASR_INPUT` toggle at the top of [asr_engine.py](file:///home/user/voice-clone/qwen_tts_service/app/services/asr_engine.py).
+
+When enabled, audio files are cleaned and normalized to 16kHz using the GPU-batched [fb_denoiser](file:///home/user/voice-clone/qwen_tts_service/app/services/fb_denoiser.py) (`process_batch_tensors`) **before** being passed to the Qwen3-ASR model. Denoised temp files are deleted after transcription completes.
+
+Set `DENOISE_ASR_INPUT = False` to bypass this stage entirely.

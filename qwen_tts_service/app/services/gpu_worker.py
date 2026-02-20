@@ -182,10 +182,28 @@ class GPUWorker:
                     resolved = file_store.get_path(path)
                     ref_audios.append(str(resolved) if resolved else path)
                 
-                # Use asr language mapping (raw value for now or auto)
+                # Use asr language mapping
+                from app.api.v1.endpoints.asr import ASR_LANGUAGE_MAP
+                from app.models.asr_models import ASRLanguageEnum
+
+                mapped_languages = []
+                for item in items:
+                    lang_code = item.get("language", "auto")
+                    lang_name = None
+                    if lang_code != "auto":
+                        try:
+                            # Try mapping from ISO code
+                            enum_val = ASRLanguageEnum(lang_code)
+                            lang_name = ASR_LANGUAGE_MAP.get(enum_val)
+                        except ValueError:
+                            # Fallback: check if it's already a full name like "English"
+                            lang_name = lang_code
+                    mapped_languages.append(lang_name)
+                
+                # ASR engine handles list of languages if needed, but here we pass the resolved names
                 asr_results = asr_engine.transcribe(
                     audio=ref_audios,
-                    language=None if languages[0] == "Auto" else languages, # Simple assumption for now
+                    language=mapped_languages if any(mapped_languages) else None,
                     return_timestamps=items[0].get("return_timestamps", False)
                 )
                 
@@ -199,13 +217,44 @@ class GPUWorker:
                             for ts in res.time_stamps
                         ]
                     results.append(json.dumps(out).encode('utf-8'))
+            elif operation == "diarize":
+                from app.services.diarization_engine import diarization_engine
+                
+                ref_audios = []
+                for item in items:
+                    path = item.get("ref_audio")
+                    resolved = file_store.get_path(path)
+                    ref_audios.append(str(resolved) if resolved else path)
+                
+                num_speakers = [item.get("num_speakers") for item in items]
+                min_speakers = [item.get("min_speakers") for item in items]
+                max_speakers = [item.get("max_speakers") for item in items]
+                
+                diarize_results = diarization_engine.diarize(
+                    audio_paths=ref_audios,
+                    num_speakers=num_speakers,
+                    min_speakers=min_speakers,
+                    max_speakers=max_speakers
+                )
+                
+                results = []
+                for res in diarize_results:
+                    # Convert Pydantic models to dict for JSON serialization
+                    segments = [s.model_dump() for s in res["segments"]]
+                    out = {
+                        "segments": segments,
+                        "num_speakers": res["num_speakers"]
+                    }
+                    if "error" in res:
+                        out["error"] = res["error"]
+                    results.append(json.dumps(out).encode('utf-8'))
             
             # Save results and update status
             for i, item in enumerate(items):
                 item_id = item["item_id"]
                 try:
                     audio_content = results[i]
-                    ext = ".json" if operation == "transcribe" else ".wav"
+                    ext = ".json" if operation in ["transcribe", "diarize"] else ".wav"
                     filename = f"queue_{operation}_{item_id}{ext}"
                     file_id = file_store.save(audio_content, filename)
                     url = f"/api/v1/files/{file_id}"
