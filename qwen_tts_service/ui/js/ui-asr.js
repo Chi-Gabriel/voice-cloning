@@ -10,8 +10,8 @@ UI.handleTranscribeNow = async () => {
         btn.disabled = true;
         btn.textContent = 'Transcribing...';
         UI.elements.asrResultContainer.style.display = 'none';
-        UI.elements.asrTimelineContainer.style.display = 'none';
-        UI.elements.asrActiveSegment.style.display = 'none';
+        if (UI.elements.asrTimelineContainer) UI.elements.asrTimelineContainer.style.display = 'none';
+        if (UI.elements.asrActiveSegment) UI.elements.asrActiveSegment.style.display = 'none';
 
         const uploaded = await API.uploadFile(file);
         const lang = UI.elements.asrLanguage.value;
@@ -23,18 +23,22 @@ UI.handleTranscribeNow = async () => {
         }], lang, timestamps);
 
         const result = response.items[0];
-        let resultText = `Language: ${result.language}\n\n`;
+
+        UI.elements.asrResultText.innerHTML = '';
+        const langHeader = document.createElement('div');
+        langHeader.style.marginBottom = '10px';
+        langHeader.style.color = 'var(--text-secondary)';
+        langHeader.textContent = `Language: ${result.language}`;
+        UI.elements.asrResultText.appendChild(langHeader);
 
         if (result.timestamps && result.timestamps.length > 0) {
-            UI.renderASRTimeline(result.timestamps);
-            result.timestamps.forEach(ts => {
-                resultText += `[${ts.start_time.toFixed(2)}s - ${ts.end_time.toFixed(2)}s] ${ts.text}\n`;
-            });
+            UI.renderInteractiveASR(result.timestamps);
         } else {
-            resultText += result.text;
+            const textNode = document.createElement('div');
+            textNode.textContent = result.text;
+            UI.elements.asrResultText.appendChild(textNode);
         }
 
-        UI.elements.asrResultText.textContent = resultText;
         UI.elements.asrResultContainer.style.display = 'block';
 
     } catch (error) {
@@ -45,71 +49,79 @@ UI.handleTranscribeNow = async () => {
     }
 };
 
-UI.renderASRTimeline = (timestamps) => {
-    const container = UI.elements.asrTimelineContainer;
-    const scrubber = UI.elements.asrScrubber;
-    const activeText = UI.elements.asrActiveSegment;
+UI.renderInteractiveASR = (timestamps) => {
+    const textContainer = document.createElement('div');
+    textContainer.style.lineHeight = '1.8';
+    textContainer.style.fontSize = '1.05rem';
+    UI.elements.asrResultText.appendChild(textContainer);
+
     const audio = UI.elements.asrPreview;
+    const wordSpans = [];
 
-    container.style.display = 'block';
-    activeText.style.display = 'block';
-    activeText.textContent = "Click a segment to see text...";
+    timestamps.forEach((ts, index) => {
+        const span = document.createElement('span');
+        span.textContent = ts.text + ' ';
+        span.style.cursor = 'pointer';
+        span.style.padding = '2px 4px';
+        span.style.borderRadius = '4px';
+        span.style.transition = 'background-color 0.1s, color 0.1s';
+        span.title = `[${ts.start_time.toFixed(2)}s - ${ts.end_time.toFixed(2)}s]`;
 
-    // Clear existing lanes
-    Array.from(container.children).forEach(child => {
-        if (child.id !== 'asr-scrubber') container.removeChild(child);
-    });
+        span.onmouseenter = () => {
+            if (span.dataset.active !== "true") {
+                span.style.backgroundColor = 'rgba(255,255,255,0.1)';
+            }
+        };
+        span.onmouseleave = () => {
+            if (span.dataset.active !== "true") {
+                span.style.backgroundColor = 'transparent';
+            }
+        };
 
-    const duration = timestamps[timestamps.length - 1].end_time;
-
-    const row = document.createElement('div');
-    row.className = 'diarize-row';
-
-    const label = document.createElement('div');
-    label.className = 'speaker-label';
-    label.textContent = "Transcript";
-
-    const lane = document.createElement('div');
-    lane.className = 'diarize-lane';
-    lane.style.height = '40px';
-
-    row.appendChild(label);
-    row.appendChild(lane);
-    container.appendChild(row);
-
-    timestamps.forEach(ts => {
-        const el = document.createElement('div');
-        el.className = 'diarize-segment';
-        el.style.left = `${(ts.start_time / duration) * 100}%`;
-        el.style.width = `${((ts.end_time - ts.start_time) / duration) * 100}%`;
-        el.style.backgroundColor = 'var(--accent)';
-        el.style.opacity = '0.7';
-        el.style.border = '1px solid rgba(255,255,255,0.1)';
-
-        el.onclick = (e) => {
-            e.stopPropagation();
-            activeText.textContent = ts.text;
-            activeText.style.background = 'rgba(59, 130, 246, 0.2)';
-
+        span.onclick = () => {
             if (audio.src) {
-                audio.playTargetEnd = ts.end_time;
                 audio.currentTime = ts.start_time;
+                // Play just this segment
+                audio.playTargetEnd = ts.end_time;
                 audio.play();
             }
         };
-        lane.appendChild(el);
+
+        textContainer.appendChild(span);
+        wordSpans.push({ span, start: ts.start_time, end: ts.end_time });
     });
 
     audio.ontimeupdate = () => {
-        const laneRect = lane.getBoundingClientRect();
-        const wrapperRect = container.getBoundingClientRect();
-        const offsetLeft = laneRect.left - wrapperRect.left;
-        const currentPct = audio.currentTime / audio.duration;
-        scrubber.style.left = `${offsetLeft + currentPct * laneRect.width}px`;
+        const currentTime = audio.currentTime;
+        let activeFound = false;
 
-        if (audio.playTargetEnd && audio.currentTime >= audio.playTargetEnd) {
+        wordSpans.forEach(item => {
+            const isActive = currentTime >= item.start && currentTime <= item.end;
+            if (isActive) {
+                item.span.style.backgroundColor = 'var(--accent)';
+                item.span.style.color = '#fff';
+                item.span.dataset.active = "true";
+                if (!activeFound) {
+                    // Small auto-scroll logic if needed could go here
+                    item.span.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    activeFound = true;
+                }
+            } else {
+                item.span.style.backgroundColor = 'transparent';
+                item.span.style.color = 'inherit';
+                item.span.dataset.active = "false";
+            }
+        });
+
+        if (audio.playTargetEnd && currentTime >= audio.playTargetEnd) {
             audio.pause();
             audio.playTargetEnd = null;
+            // Optionally clear highlights after playing
+            wordSpans.forEach(item => {
+                item.span.style.backgroundColor = 'transparent';
+                item.span.style.color = 'inherit';
+                item.span.dataset.active = "false";
+            });
         }
     };
 };

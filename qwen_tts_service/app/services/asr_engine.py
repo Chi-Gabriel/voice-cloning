@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 # --- ASR Tuning ---
 ASR_MODEL_ID = "Qwen/Qwen3-ASR-1.7B"
+ASR_ALIGNER_ID = "Qwen/Qwen3-ForcedAligner-0.6B"
 ASR_DTYPE = torch.bfloat16
 ASR_ATTN_IMPL = "flash_attention_2"
 ASR_MAX_NEW_TOKENS = 256
@@ -65,21 +66,27 @@ class ASREngine:
             if not settings.ENABLE_ASR:
                 raise RuntimeError("ASR is disabled in configuration.")
                 
+            # Determine model and aligner sources
             repo_name = ASR_MODEL_ID.split("/")[-1]
             model_source = os.path.join(settings.ASR_MODEL_ROOT, repo_name)
-            
             if not os.path.exists(model_source):
                 logger.info(f"Local ASR model not found at {model_source}, will download from {ASR_MODEL_ID}")
                 model_source = ASR_MODEL_ID
-            
-            logger.info(f"Loading ASR model from {model_source}...")
+
+            aligner_repo = ASR_ALIGNER_ID.split("/")[-1]
+            aligner_source = os.path.join(settings.ASR_MODEL_ROOT, aligner_repo)
+            if not os.path.exists(aligner_source):
+                aligner_source = ASR_ALIGNER_ID
+
+            logger.info(f"Loading ASR model from {model_source} with aligner {aligner_source}...")
             self.model = Qwen3ASRModel.from_pretrained(
                 model_source,
                 dtype=ASR_DTYPE,
                 device_map=self.device,
                 attn_implementation=ASR_ATTN_IMPL,
                 max_inference_batch_size=settings.ASR_MAX_BATCH_SIZE,
-                max_new_tokens=ASR_MAX_NEW_TOKENS
+                max_new_tokens=ASR_MAX_NEW_TOKENS,
+                forced_aligner=aligner_source
             )
             logger.info("ASR model loaded successfully.")
 
