@@ -31,3 +31,68 @@ Diarization requires a HuggingFace Hub token for the gated `pyannote/speaker-dia
 - Set `HF_TOKEN` in the environment or `.env` file.
 - `ENABLE_DIARIZATION`: Toggle the feature on/off.
 - `DIARIZATION_MAX_BATCH_SIZE`: Limits the number of concurrent diarization tasks in a GPU worker batch.
+
+## External API Consumption
+
+To consume the diarization service from an external server, use the following specifications.
+
+### Authentication
+All requests require the `x-api-key` header configured in your `.env` file.
+
+### 1. Upload & Diarize (Direct)
+**Endpoint**: `POST /api/v1/diarize/file`  
+**Content-Type**: `multipart/form-data`
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `audio` | File | Yes | The audio file to process |
+| `num_speakers` | int | No | Exact number of speakers (if known) |
+| `min_speakers` | int | No | Minimum expected speakers |
+| `max_speakers` | int | No | Maximum expected speakers |
+
+**Example (cURL)**:
+```bash
+curl -X POST "https://your-server.com/api/v1/diarize/file" \
+     -H "x-api-key: YOUR_API_KEY" \
+     -F "audio=@/path/to/audio.wav" \
+     -F "min_speakers=1" \
+     -F "max_speakers=5"
+```
+
+### 2. Response Format
+The API returns a JSON object containing identified speaker segments.
+
+```json
+{
+  "segments": [
+    {
+      "speaker": "SPEAKER_00",
+      "start": 0.12,
+      "end": 4.56
+    },
+    {
+      "speaker": "SPEAKER_01",
+      "start": 5.10,
+      "end": 10.20
+    }
+  ],
+  "num_speakers": 2,
+  "performance": 1.25
+}
+```
+
+### Python Example (Requests)
+```python
+import requests
+
+url = "https://your-server.com/api/v1/diarize/file"
+headers = {"x-api-key": "YOUR_API_KEY"}
+files = {"audio": open("interview.mp3", "rb")}
+data = {"min_speakers": 1, "max_speakers": 10}
+
+response = requests.post(url, headers=headers, files=files, data=data)
+result = response.json()
+
+for segment in result["segments"]:
+    print(f"[{segment['start']:.2f}s - {segment['end']:.2f}s] {segment['speaker']}")
+```
