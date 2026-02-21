@@ -48,9 +48,15 @@ class FileStore:
 
     def get_path(self, file_id: str) -> Optional[Path]:
         """Resolve a file ID to a filesystem path. Returns None if not found."""
+        if not file_id or os.path.isabs(file_id):
+            return None
+            
         # Search for file with any extension matching the ID
-        for file_path in self.storage_dir.glob(f"{file_id}.*"):
-            return file_path
+        try:
+            for file_path in self.storage_dir.glob(f"{file_id}.*"):
+                return file_path
+        except Exception:
+            pass
         return None
 
     def _cleanup_loop(self):
